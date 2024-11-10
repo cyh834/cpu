@@ -1,0 +1,62 @@
+{
+    "chisel": {
+        "cargoLocks": null,
+        "date": "2024-11-08",
+        "extract": null,
+        "name": "chisel",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "chipsalliance",
+            "repo": "chisel",
+            "rev": "0e191719107b2d9ee9a98170a6c3419784152307",
+            "sha256": "sha256-en6BdYoZwM250tnoOtX62Nd7ovxDtM/5ymi0Y2WYBDc=",
+            "type": "github"
+        },
+        "version": "0e191719107b2d9ee9a98170a6c3419784152307"
+    },
+    "riscv-opcodes": {
+        "cargoLocks": null,
+        "date": "2024-11-08",
+        "extract": null,
+        "name": "riscv-opcodes",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "riscv",
+            "repo": "riscv-opcodes",
+            "rev": "2af964acf2425f6a9f7fd51187799640549f4df3",
+            "sha256": "sha256-qw/RFo3be3i8XqesFU+dx1Qf8LyGPFjM/PqMenXJCuQ=",
+            "type": "github"
+        },
+        "version": "2af964acf2425f6a9f7fd51187799640549f4df3"
+    },
+    "rvdecoderdb": {
+        "cargoLocks": null,
+        "date": "2024-10-10",
+        "extract": null,
+        "name": "rvdecoderdb",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "sequencer",
+            "repo": "rvdecoderdb",
+            "rev": "0879de48edbd738ce390e2327eae5c23f7f33778",
+            "sha256": "sha256-mWKxI/IP5VrZuXQF3Wf4+m75ccddcGe4DPhcz8AvouA=",
+            "type": "github"
+        },
+        "version": "0879de48edbd738ce390e2327eae5c23f7f33778"
+    }
+}
