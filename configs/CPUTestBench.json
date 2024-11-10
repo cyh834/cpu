@@ -6,7 +6,7 @@
         "clockFlipTick": 1,
         "resetFlipTick": 100
     },
-    "gcdParameter": {
+    "cpuParameter": {
         "width": 16,
         "useAsyncReset": false
     },
