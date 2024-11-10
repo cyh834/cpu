@@ -44,7 +44,7 @@ let
             root = ./../..;
             fileset = unions [ ./../../build.sc ./../../common.sc ];
           };
-        millDepsHash = "";
+        millDepsHash = "sha256-5VTgJ1JaIxP3wk/WsFj+W1VGFE2xoPKu3XbmTVOvMdk=";
         nativeBuildInputs = [ projectDependencies.setupHook ];
       };
 
