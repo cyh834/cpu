@@ -10,6 +10,7 @@ import mill.scalalib.TestModule.Utest
 import mill.util.Jvm
 import coursier.maven.MavenRepository
 import $file.dependencies.chisel.build
+import $file.dependencies.rvdecoderdb.common
 import $file.common
 
 object deps {
