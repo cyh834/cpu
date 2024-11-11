@@ -3,7 +3,17 @@ package cpu.frontend.decoder
 object isMOU {
   def apply(CPUDecodePattern: CPUDecodePattern): isMOU = {
     val allMatched = Seq(
-      "mv", "add", "sub", "neg", "not", "sext.w", "seqz", "snez", "sltz", "sgtz", "fence"
+      "mv",
+      "add",
+      "sub",
+      "neg",
+      "not",
+      "sext.w",
+      "seqz",
+      "snez",
+      "sltz",
+      "sgtz",
+      "fence"
     )
     allMatched.contains(CPUDecodePattern.instruction.name)
   }
@@ -20,17 +30,17 @@ object UopSEQZ extends MOUOpType
 object UopSNEZ extends MOUOpType
 
 object UopMOU {
-    def apply(CPUDecodePattern: CPUDecodePattern): Uop = {
-        CPUDecodePattern.instruction.name match {
-            case "mv"     => UopMV
-            case "add"    => UopADD
-            case "sub"    => UopSUB
-            case "neg"    => UopNEG
-            case "not"    => UopNOT
-            case "sext.w" => UopSEXTW
-            case "seqz"   => UopSEQZ
-            case "snez"   => UopSNEZ
-            case _        => UopDC
-        }
+  def apply(CPUDecodePattern: CPUDecodePattern): Uop = {
+    CPUDecodePattern.instruction.name match {
+      case "mv"     => UopMV
+      case "add"    => UopADD
+      case "sub"    => UopSUB
+      case "neg"    => UopNEG
+      case "not"    => UopNOT
+      case "sext.w" => UopSEXTW
+      case "seqz"   => UopSEQZ
+      case "snez"   => UopSNEZ
+      case _        => UopDC
     }
+  }
 }

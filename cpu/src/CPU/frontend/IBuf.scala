@@ -7,22 +7,22 @@ import cpu._
 import fifo._
 
 object IBUParameter {
-  implicit def rw: upickle.default.ReadWriter[IBUParameter] = 
+  implicit def rw: upickle.default.ReadWriter[IBUParameter] =
     upickle.default.macroRW
 }
 
-case class IBUParameter(VAddrBits: Int) extends SerializableModuleParameter{
+case class IBUParameter(VAddrBits: Int) extends SerializableModuleParameter {
   val IBUFDepth = 8
 }
 
-class IBUFInterface(parameter: IBUParameter) extends Bundle{
+class IBUFInterface(parameter: IBUParameter) extends Bundle {
   val in = Flipped(Decoupled(new IFU2IBUF(parameter.VAddrBits)))
   val out = Decoupled(new IBUF2IDU(parameter.VAddrBits))
 }
 
 class IBUF(parameter: IBUParameter)
-  extends FixedIORawModule(new IBUFInterface(parameter))
-  with SerializableModule[IBUParameter]{
+    extends FixedIORawModule(new IBUFInterface(parameter))
+    with SerializableModule[IBUParameter] {
 
   val buf: Instance[SyncFIFO[IFU2IBUF]] = Instantiate(new SyncFIFO(new IFU2IBUF, parameter.IBUFDepth))
   io.in.ready := !buf.io.full

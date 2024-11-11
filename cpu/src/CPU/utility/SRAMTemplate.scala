@@ -1,18 +1,14 @@
-/**************************************************************************************
-* Copyright (c) 2020 Institute of Computing Technology, CAS
-* Copyright (c) 2020 University of Chinese Academy of Sciences
-*
-* NutShell is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*             http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER
-* EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR
-* FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
-***************************************************************************************/
+/** ************************************************************************************ Copyright (c) 2020 Institute of
+  * Computing Technology, CAS Copyright (c) 2020 University of Chinese Academy of Sciences
+  *
+  * NutShell is licensed under Mulan PSL v2. You can use this software according to the terms and conditions of the
+  * Mulan PSL v2. You may obtain a copy of Mulan PSL v2 at: http://license.coscl.org.cn/MulanPSL2
+  *
+  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
+  * BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+  *
+  * See the Mulan PSL v2 for more details.
+  */
 
 package utility
 
@@ -65,8 +61,14 @@ class SRAMWriteBus[T <: Data](private val gen: T, val set: Int, val way: Int = 1
   }
 }
 
-class SRAMTemplate[T <: Data](gen: T, set: Int, way: Int = 1,
-  shouldReset: Boolean = false, holdRead: Boolean = false, singlePort: Boolean = false) extends Module {
+class SRAMTemplate[T <: Data](
+  gen:         T,
+  set:         Int,
+  way:         Int = 1,
+  shouldReset: Boolean = false,
+  holdRead:    Boolean = false,
+  singlePort:  Boolean = false)
+    extends Module {
   val io = IO(new Bundle {
     val r = Flipped(new SRAMReadBus(gen, set, way))
     val w = Flipped(new SRAMWriteBus(gen, set, way))
@@ -79,7 +81,7 @@ class SRAMTemplate[T <: Data](gen: T, set: Int, way: Int = 1,
   if (shouldReset) {
     val _resetState = RegInit(true.B)
     val (_resetSet, resetFinish) = Counter(_resetState, set)
-    when (resetFinish) { _resetState := false.B }
+    when(resetFinish) { _resetState := false.B }
 
     resetState := _resetState
     resetSet := _resetSet
@@ -92,7 +94,7 @@ class SRAMTemplate[T <: Data](gen: T, set: Int, way: Int = 1,
   val wdataword = Mux(resetState, 0.U.asTypeOf(wordType), io.w.req.bits.data.asUInt)
   val waymask = Mux(resetState, Fill(way, "b1".U), io.w.req.bits.waymask.getOrElse("b1".U))
   val wdata = VecInit(Seq.fill(way)(wdataword))
-  when (wen) { array.write(setIdx, wdata, waymask.asBools) }
+  when(wen) { array.write(setIdx, wdata, waymask.asBools) }
 
   val rdata = (if (holdRead) ReadAndHold(array, io.r.req.bits.setIdx, realRen)
                else array.read(io.r.req.bits.setIdx, realRen)).map(_.asTypeOf(gen))
@@ -101,18 +103,18 @@ class SRAMTemplate[T <: Data](gen: T, set: Int, way: Int = 1,
   io.r.req.ready := !resetState && (if (singlePort) !wen else true.B)
   io.w.req.ready := true.B
 
-  //Debug(false) {
+  // Debug(false) {
   //  when (wen) {
   //    printf("%d: SRAMTemplate: write %x to idx = %d\n", GTimer(), wdata.asUInt, setIdx)
   //  }
   //  when (RegNext(realRen)) {
   //    printf("%d: SRAMTemplate: read %x at idx = %d\n", GTimer(), VecInit(rdata).asUInt, RegNext(io.r.req.bits.setIdx))
   //  }
-  //}
+  // }
 }
 
-class SRAMTemplateWithArbiter[T <: Data](nRead: Int, gen: T, set: Int, way: Int = 1,
-  shouldReset: Boolean = false) extends Module {
+class SRAMTemplateWithArbiter[T <: Data](nRead: Int, gen: T, set: Int, way: Int = 1, shouldReset: Boolean = false)
+    extends Module {
   val io = IO(new Bundle {
     val r = Flipped(Vec(nRead, new SRAMReadBus(gen, set, way)))
     val w = Flipped(new SRAMWriteBus(gen, set, way))
@@ -126,7 +128,9 @@ class SRAMTemplateWithArbiter[T <: Data](nRead: Int, gen: T, set: Int, way: Int 
   ram.io.r.req <> readArb.io.out
 
   // latch read results
-  io.r.map{ case r => {
-    r.resp.data := HoldUnless(ram.io.r.resp.data, RegNext(r.req.fire))
-  }}
+  io.r.map {
+    case r => {
+      r.resp.data := HoldUnless(ram.io.r.resp.data, RegNext(r.req.fire))
+    }
+  }
 }

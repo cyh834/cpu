@@ -18,19 +18,35 @@ pub type SvBitVecVal = u32;
 static DPI_TARGET: Mutex<Option<Box<Driver>>> = Mutex::new(None);
 
 #[repr(C, packed)]
-pub(crate) struct RetireData{
-    pub inst: u32,
-    pub pc: u64,
-    pub gpr: [u64; 32],
-    //csr
-    pub mode: u64, pub mstatus: u64, pub sstatus: u64,
-    pub mepc: u64, pub sepc: u64, pub mtval: u64, pub stval: u64,
-    pub mtvec: u64, pub stvec: u64, pub mcause: u64, pub scause: u64,
-    pub satp: u64, pub mip: u64, pub mie: u64, pub mscratch: u64,
-    pub sscratch: u64, pub mideleg: u64, pub medeleg: u64
+pub(crate) struct RetireData {
+  pub inst: u32,
+  pub pc: u64,
+  pub gpr: [u64; 32],
+  //csr
+  pub mode: u64,
+  pub mstatus: u64,
+  pub sstatus: u64,
+  pub mepc: u64,
+  pub sepc: u64,
+  pub mtval: u64,
+  pub stval: u64,
+  pub mtvec: u64,
+  pub stvec: u64,
+  pub mcause: u64,
+  pub scause: u64,
+  pub satp: u64,
+  pub mip: u64,
+  pub mie: u64,
+  pub mscratch: u64,
+  pub sscratch: u64,
+  pub mideleg: u64,
+  pub medeleg: u64,
 
-    pub skip: bool, pub is_rvc: bool, pub rfwen: bool,
-    pub is_load: bool, pub is_store: bool,
+  pub skip: bool,
+  pub is_rvc: bool,
+  pub rfwen: bool,
+  pub is_load: bool,
+  pub is_store: bool,
 }
 
 //----------------------
@@ -39,31 +55,30 @@ pub(crate) struct RetireData{
 
 #[no_mangle]
 unsafe extern "C" fn sim_init() {
-    let plusargs = PlusArgMatcher::from_args();
-    let args = SimArgs::from_plusargs(&plusargs);
-    args.setup_logger().unwrap();
-    let scope = SvScope::get_current().expect("failed to get scope in sim_init");
+  let plusargs = PlusArgMatcher::from_args();
+  let args = SimArgs::from_plusargs(&plusargs);
+  args.setup_logger().unwrap();
+  let scope = SvScope::get_current().expect("failed to get scope in sim_init");
 
-    let mut dpi_target = DPI_TARGET.lock().unwrap();
-    assert!(dpi_target.is_none(), "sim_init should be called only once");
+  let mut dpi_target = DPI_TARGET.lock().unwrap();
+  assert!(dpi_target.is_none(), "sim_init should be called only once");
 
-    let driver = Box::new(Driver::new(scope, &args));
-    *dpi_target = Some(driver);
+  let driver = Box::new(Driver::new(scope, &args));
+  *dpi_target = Some(driver);
 }
 
 #[no_mangle]
 unsafe extern "C" fn sim_final() {
-    //TODO:
+  //TODO:
 }
 
 #[no_mangle]
 unsafe extern "C" fn sim_watchdog(reason: *mut c_char) {
-    let mut driver = DPI_TARGET.lock().unwrap();
-    if let Some(driver) = driver.as_mut() {
-        *reason = driver.watchdog() as c_char;
-    }
+  let mut driver = DPI_TARGET.lock().unwrap();
+  if let Some(driver) = driver.as_mut() {
+    *reason = driver.watchdog() as c_char;
+  }
 }
-
 
 #[no_mangle]
 unsafe extern "C" fn retire_instruction(retire_src: *const SvBitVecVal) {
@@ -78,7 +93,7 @@ unsafe extern "C" fn retire_instruction(retire_src: *const SvBitVecVal) {
 //unsafe extern "C" fn difftest_ArchIntRegState(gpr: *mut c_longlong) {
 //    let mut driver = DPI_TARGET.lock().unwrap();
 //    if let Some(driver) = driver.as_mut() {
-//       driver.dut.setgpr(gpr); 
+//       driver.dut.setgpr(gpr);
 //    }
 //}
 
@@ -121,7 +136,7 @@ unsafe extern "C" fn retire_instruction(retire_src: *const SvBitVecVal) {
 //#[no_mangle]
 //unsafe extern "C" fn difftest_TrapEvent (
 //    hasTrap: bool, Trapcode: u32, pc: u64
-//    cycleCnt: u64, instrCnt: u64, 
+//    cycleCnt: u64, instrCnt: u64,
 //    hasWFI: bool
 //) {
 //    let mut driver = DPI_TARGET.lock().unwrap();
@@ -141,22 +156,22 @@ unsafe extern "C" fn retire_instruction(retire_src: *const SvBitVecVal) {
 //--------------------------------
 
 mod dpi_export {
-    use std::ffi::c_char;
-    extern "C" {
-        #[cfg(feature = "trace")]
-        /// `export "DPI-C" function dump_wave(input string file)`
-        pub fn dump_wave(path: *const c_char);
-    }
+  use std::ffi::c_char;
+  extern "C" {
+    #[cfg(feature = "trace")]
+    /// `export "DPI-C" function dump_wave(input string file)`
+    pub fn dump_wave(path: *const c_char);
+  }
 }
 
 #[cfg(feature = "trace")]
 pub(crate) fn dump_wave(scope: SvScope, path: &str) {
-    use svdpi::set_scope;
+  use svdpi::set_scope;
 
-    let path_cstring = CString::new(path).unwrap();
+  let path_cstring = CString::new(path).unwrap();
 
-    set_scope(scope);
-    unsafe {
-        dpi_export::dump_wave(path_cstring.as_ptr());
-    }
+  set_scope(scope);
+  unsafe {
+    dpi_export::dump_wave(path_cstring.as_ptr());
+  }
 }

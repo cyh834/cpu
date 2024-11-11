@@ -15,7 +15,7 @@
 //  instr: BitPat,
 //  src1: UInt,  src2: UInt,
 //  fu: UInt, fuOp: UInt, InstrType: UInt,
-//  xWen: Boolean = false, 
+//  xWen: Boolean = false,
 //  CPUTrap: Boolean = false,
 //  noSpec: Boolean = false,
 //  blockBack: Boolean = false,
@@ -209,11 +209,11 @@
 //  val RVM = if (XLEN == 64) RV64M.table else RV32M.table
 //  val RVA = if (XLEN == 64) RV64A.table else RV32A.table
 //
-//  val decodeArray = 
-//    RVI ++ 
-//    (if(HasMExtension) RVM else Array()) ++ 
-//    (if(HasAExtension) RVA else Array()) ++ 
-//    RVZicsr.table ++ RVZifencei.table ++ RVPrivileged.table ++ 
+//  val decodeArray =
+//    RVI ++
+//    (if(HasMExtension) RVM else Array()) ++
+//    (if(HasAExtension) RVA else Array()) ++
+//    RVZicsr.table ++ RVZifencei.table ++ RVPrivileged.table ++
 //    Trap.table
 //
 //  val table: Array[(BitPat, List[UInt])] = decodeArray.map(x => x.generate()).map{ case (pat, pats) => (pat, pats.map(bitPatToUInt)) }.toArray

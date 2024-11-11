@@ -21,29 +21,29 @@ object CPUParameter {
 /** Parameter of [[CPU]] */
 case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParameter {
   val allInstructions: Seq[Instruction] = {
-   org.chipsalliance.rvdecoderdb
-     .instructions(org.chipsalliance.rvdecoderdb.extractResource(getClass.getClassLoader))
-     .filter { instruction =>
+    org.chipsalliance.rvdecoderdb
+      .instructions(org.chipsalliance.rvdecoderdb.extractResource(getClass.getClassLoader))
+      .filter { instruction =>
         (
           extensions ++
             // Four mandatory instruction sets.
             Seq("rv_i", "rv_zicsr", "rv_zifencei", "rv_system")
         ).contains(instruction.instructionSet.name)
-     }
+      }
   }.sortBy(_.instructionSet.name)
-  private def hasInstructionSet(setName: String): Boolean          =
+  private def hasInstructionSet(setName: String): Boolean =
     instructions.flatMap(_.instructionSets.map(_.name)).contains(setName)
-  
+
   val decoderParam: DecoderParam = DecoderParam(allInstructions)
 
-  def xLen:                                       Int              =
+  def xLen: Int =
     (hasInstructionSet("rv32_i"), hasInstructionSet("rv64_i")) match {
       case (true, true)   => throw new Exception("cannot support both rv32 and rv64 together")
       case (true, false)  => 32
       case (false, true)  => 64
       case (false, false) => throw new Exception("no basic instruction found.")
     }
-  
+
   def usingAtomics = hasInstructionSet("rv_a") || hasInstructionSet("rv64_a")
   def usingCompressed = hasInstructionSet("rv_c")
 
@@ -62,69 +62,68 @@ case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParam
     isRO = false
   )
 
-
   val ResetVector: Long = 0x80000000L
 
-  //TODO: support external interrupt
+  // TODO: support external interrupt
   val NrExtIntr: Int = 0
 
-  val HasDTLB: Boolean = false
-  val HasITLB: Boolean = false
+  val HasDTLB:   Boolean = false
+  val HasITLB:   Boolean = false
   val HasDcache: Boolean = false
   val HasIcache: Boolean = false
   val MmodeOnly: Boolean = false
 
-  val VAddrBits: Int = 39
-  val PAddrBits: Int = 32
-  val DataBits: Int = XLEN
-  val DataBytes: Int = DataBits / 8
-  val AXI4SIZE: Int = log2Up(DataBytes)
-  val NrPhyRegs: Int = 32
+  val VAddrBits:      Int = 39
+  val PAddrBits:      Int = 32
+  val DataBits:       Int = XLEN
+  val DataBytes:      Int = DataBits / 8
+  val AXI4SIZE:       Int = log2Up(DataBytes)
+  val NrPhyRegs:      Int = 32
   val LogicRegsWidth: Int = log2Up(NrPhyRegs)
 
   val RegFileParameter: RegFileParameter = RegFileParameter(
     addrWidth = LogicRegsWidth,
-    dataWidth = DataBits,
+    dataWidth = DataBits
   )
 
   val ScoreBoardParameter: ScoreBoardParameter = ScoreBoardParameter(
     addrWidth = LogicRegsWidth,
-    dataWidth = DataBits,
+    dataWidth = DataBits
   )
 }
 
 /** Verification IO of [[CPU]] */
 class Retire extends Bundle {
-  val inst:      UInt      = UInt(32.W)
-  val pc:        UInt      = UInt(64.W)
-  val gpr:       Vec[UInt] = Vec(32, UInt(64.W))
-  val mode:      UInt      = UInt(64.W)
-  val mstatus:   UInt      = UInt(64.W)
-  val sstatus:   UInt      = UInt(64.W)
-  val mepc:      UInt      = UInt(64.W)
-  val sepc:      UInt      = UInt(64.W)
-  val mtval:     UInt      = UInt(64.W)
-  val stval:     UInt      = UInt(64.W)
-  val mtvec:     UInt      = UInt(64.W)
-  val stvec:     UInt      = UInt(64.W)
-  val mcause:    UInt      = UInt(64.W)
-  val scause:    UInt      = UInt(64.W)
-  val satp:      UInt      = UInt(64.W)
-  val mip:       UInt      = UInt(64.W)
-  val mie:       UInt      = UInt(64.W)
-  val mscratch:  UInt      = UInt(64.W)
-  val sscratch:  UInt      = UInt(64.W)
-  val mideleg:   UInt      = UInt(64.W)
-  val medeleg:   UInt      = UInt(64.W)
-  val skip:      Bool      = Bool()
-  val is_rvc:    Bool      = Bool()
-  val rfwen:     Bool      = Bool()
-  val is_load:   Bool      = Bool()
-  val is_store:  Bool      = Bool()
+  val inst:     UInt = UInt(32.W)
+  val pc:       UInt = UInt(64.W)
+  val gpr:      Vec[UInt] = Vec(32, UInt(64.W))
+  val mode:     UInt = UInt(64.W)
+  val mstatus:  UInt = UInt(64.W)
+  val sstatus:  UInt = UInt(64.W)
+  val mepc:     UInt = UInt(64.W)
+  val sepc:     UInt = UInt(64.W)
+  val mtval:    UInt = UInt(64.W)
+  val stval:    UInt = UInt(64.W)
+  val mtvec:    UInt = UInt(64.W)
+  val stvec:    UInt = UInt(64.W)
+  val mcause:   UInt = UInt(64.W)
+  val scause:   UInt = UInt(64.W)
+  val satp:     UInt = UInt(64.W)
+  val mip:      UInt = UInt(64.W)
+  val mie:      UInt = UInt(64.W)
+  val mscratch: UInt = UInt(64.W)
+  val sscratch: UInt = UInt(64.W)
+  val mideleg:  UInt = UInt(64.W)
+  val medeleg:  UInt = UInt(64.W)
+  val skip:     Bool = Bool()
+  val is_rvc:   Bool = Bool()
+  val rfwen:    Bool = Bool()
+  val is_load:  Bool = Bool()
+  val is_store: Bool = Bool()
 }
 
 class CPUProbe(parameter: CPUParameter) extends Bundle {
-  val retire:            Valid[Retire] = Valid(new Retire)
+  val retire: Valid[Retire] = Valid(new Retire)
 }
 
 /** Metadata of [[CPU]]. */
@@ -156,7 +155,7 @@ class CPU(val parameter: CPUParameter)
   override protected def implicitReset: Reset = io.reset
 
   val frontend: Instance[Frontend] = Instantiate(new Frontend(parameter))
-  val backend: Instance[Backend] = Instantiate(new Backend(parameter))
+  val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
   PipelineConnect(frontend.io.out, backend.io.in, false.B, false.B)
 
   // Assign Probe

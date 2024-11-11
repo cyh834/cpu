@@ -19,8 +19,7 @@ case class CPUTestBenchParameter(
   testVerbatimParameter: TestVerbatimParameter,
   cpuParameter:          CPUParameter,
   timeout:               Int)
-    extends SerializableModuleParameter {
-}
+    extends SerializableModuleParameter {}
 
 @instantiable
 class CPUTestBenchOM(parameter: CPUTestBenchParameter) extends Class {
@@ -67,7 +66,7 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
   when(watchdogCode =/= Running) {
     stop(cf"""{"event":"SimulationStop","reason": ${watchdogCode},"cycle":${simulationTime}}\n""")
   }
-  
+
   val axi4vip = new AXI4VIP(parameter.cpuParameter.axi4BundleParameter)
   axi4vip.io.clock := implicitClock
   axi4vip.io.reset := implicitReset
@@ -83,20 +82,20 @@ object TestVerbatimParameter {
 }
 
 case class TestVerbatimParameter(
-  initFunctionName: String,
+  initFunctionName:  String,
   finalFunctionName: String,
-  dumpFunctionName: String,
-  clockFlipTick:    Int,
-  resetFlipTick:    Int)
+  dumpFunctionName:  String,
+  clockFlipTick:     Int,
+  resetFlipTick:     Int)
     extends SerializableModuleParameter
 
 @instantiable
 class TestVerbatimOM(parameter: TestVerbatimParameter) extends Class {
-  val initFunctionName: Property[String] = IO(Output(Property[String]()))
+  val initFunctionName:  Property[String] = IO(Output(Property[String]()))
   val finalFunctionName: Property[String] = IO(Output(Property[String]()))
-  val dumpFunctionName: Property[String] = IO(Output(Property[String]()))
-  val clockFlipTick:    Property[Int] = IO(Output(Property[Int]()))
-  val resetFlipTick:    Property[Int] = IO(Output(Property[Int]()))
+  val dumpFunctionName:  Property[String] = IO(Output(Property[String]()))
+  val clockFlipTick:     Property[Int] = IO(Output(Property[Int]()))
+  val resetFlipTick:     Property[Int] = IO(Output(Property[Int]()))
   val cpu = IO(Output(Property[AnyClassType]()))
   @public
   val cpuIn = IO(Input(Property[AnyClassType]()))

@@ -11,42 +11,41 @@ object BPUParameter {
     upickle.default.macroRW
 }
 
-case class BPUParameter(xlen: Int, VAddrBits: Int) extends SerializableModuleParameter{
+case class BPUParameter(xlen: Int, VAddrBits: Int) extends SerializableModuleParameter {
   val NRbtb = 512
   val NRras = 16
-  //多路?
+  // 多路?
   val waynum = 1
 
-  val set = NRbtb/waynum
+  val set = NRbtb / waynum
   val idxBits = log2Up(set)
   val wayBits = log2Up(waynum)
-  val offsetBits = if(xlen == 32) 2 else 3
+  val offsetBits = if (xlen == 32) 2 else 3
   // partial-tag?
   val tagBits = VAddrBits - idxBits - offsetBits
 }
 
-class BTBAddr(parameter: BPUParameter) extends Bundle{
+class BTBAddr(parameter: BPUParameter) extends Bundle {
   val tag = UInt(tagBits.W)
   val idx = UInt(idxBits.W)
   val way = UInt(wayBits.W)
   val offset = UInt(offsetBits.W)
 
   def fromUInt(x: UInt) = x.asTypeOf(UInt(VAddrBits.W)).asTypeOf(this)
-  def getTag(x: UInt) = fromUInt(x).tag
-  def getIdx(x: UInt) = fromUInt(x).idx
-  def getway(x: UInt) = fromUInt(x).way
+  def getTag(x:   UInt) = fromUInt(x).tag
+  def getIdx(x:   UInt) = fromUInt(x).idx
+  def getway(x:   UInt) = fromUInt(x).way
 }
 
-class BTBData(parameter: BPUParameter) extends Bundle{
+class BTBData(parameter: BPUParameter) extends Bundle {
   val valid = Bool()
   val BIA = UInt(tagBits.W)
   val BTA = UInt(VAddrBits.W)
   val brtype = Brtype()
 }
 
-
 //todo:加计数器统计相同地址
-class RAS(nras: Int, vaddr: UInt){
+class RAS(nras: Int, vaddr: UInt) {
   private val ras = Reg(Vec(nras, vaddr))
   private val sp = RegInit(0.U(log2Up(nras).W))
 
@@ -59,7 +58,7 @@ class RAS(nras: Int, vaddr: UInt){
   }
 
   def pop(): Unit = {
-    when(!isEmpty){
+    when(!isEmpty) {
       sp := sp - 1.U
     }
   }
@@ -69,7 +68,7 @@ class RAS(nras: Int, vaddr: UInt){
 
 //todo:竞争的分支预测+hash
 //两位饱和计数器
-class PHT(set: Int){
+class PHT(set: Int) {
   private val pht = Mem(set, UInt(2.W))
 
   def value(addr: BTBAddr): UInt = pht.read(addr.idx)
@@ -80,11 +79,11 @@ class PHT(set: Int){
     val newtaken = Mux(realtaken, oldtaken + 1.U, oldtaken - 1.U)
     val wen = (realtaken && (oldtaken =/= "b11".U)) || (!realtaken && (oldtaken =/= "b00".U))
 
-    when(wen){ pht.write(waddr, newtaken)}
+    when(wen) { pht.write(waddr, newtaken) }
   }
 }
 
-class BTB(set: Int){
+class BTB(set: Int) {
   private val datatype = UInt((new BTBData).getWidth.W)
   private val btb = SyncReadMem(set, datatype)
 
@@ -103,7 +102,7 @@ class BTB(set: Int){
 
 }
 
-class BPUInterface(parameter: BPUParameter) extends Bundle{
+class BPUInterface(parameter: BPUParameter) extends Bundle {
   val in = Flipped(Valid(new BPUReq(parameter)))
   val flush = Input(Bool())
   val out = Valid(new PredictIO(parameter))
@@ -113,8 +112,8 @@ class BPUInterface(parameter: BPUParameter) extends Bundle{
 }
 
 class BPU(val parameter: BPUParameter)
-   extends FixedIORawModule(new BPUInterface(parameter))
-   with SerializableModule[BPUParameter]{
+    extends FixedIORawModule(new BPUInterface(parameter))
+    with SerializableModule[BPUParameter] {
   val pc = io.in.bits.pc
   implicit def fromUInt(pc: UInt): BTBAddr = (new BTBAddr(parameter)).fromUInt(pc)
 
@@ -123,36 +122,36 @@ class BPU(val parameter: BPUParameter)
   val btbRead = btb.read(pc)
   val btbData = Wire(new BTBData(parameter))
   btbData.valid := true.B
-  btbData.BIA   := io.btb_update.bits.pc.tag
-  btbData.BTA   := io.btb_update.bits.target
+  btbData.BIA := io.btb_update.bits.pc.tag
+  btbData.BTA := io.btb_update.bits.target
   btbData.brtype := io.btb_update.bits.brtype
 
-  when(io.btb_update.valid){
+  when(io.btb_update.valid) {
     btb.update(io.btb_update.bits.pc, btbData)
   }
 
   // PHT
   val pht = new PHT(set)
   val pred_taken = pht.taken(pc)
-  when (io.pht_update.valid) {
+  when(io.pht_update.valid) {
     pht.update(pc, io.pht_update.bits.taken)
   }
 
   // RAS
   val ras = new RAS(NRras, UInt(VAddrBits.W))
   val rasTarget = ras.value
-  when (io.ras_update.valid) {
-    when (io.ras_update.bits.brtype === Brtype.call) {
+  when(io.ras_update.valid) {
+    when(io.ras_update.bits.brtype === Brtype.call) {
       ras.push(Mux(io.ras_update.bits.isRVC, pc + 2.U, pc + 4.U))
     }
-    .elsewhen (io.ras_update.bits.brtype === Brtype.ret) {
-      ras.pop()
-    }
+      .elsewhen(io.ras_update.bits.brtype === Brtype.ret) {
+        ras.pop()
+      }
   }
 
-  //跳转目标
+  // 跳转目标
   val target = Mux(btbRead.brtype === Brtype.ret, rasTarget, btbRead.BTA)
-  //是否跳转
+  // 是否跳转
   val brIdx = btb.hit(pc) && Mux(btbRead.brtype === Brtype.branch, pred_taken, true.B)
 
   // update pc

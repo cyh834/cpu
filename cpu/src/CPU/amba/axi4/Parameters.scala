@@ -9,24 +9,23 @@ object AXI4BundleParameter {
 }
 
 case class AXI4BundleParameters(
-  idWidth: Int,
+  idWidth:   Int,
   dataWidth: Int,
   addrWidth: Int,
-  isRO: Boolean,
-) {
-  require (dataBits >= 8, s"AXI4 data bits must be >= 8 (got $dataBits)")
-  require (addrBits >= 1, s"AXI4 addr bits must be >= 1 (got $addrBits)")
-  require (idBits >= 1, s"AXI4 id bits must be >= 1 (got $idBits)")
-  require (isPow2(dataBits), s"AXI4 data bits must be pow2 (got $dataBits)")
+  isRO:      Boolean) {
+  require(dataBits >= 8, s"AXI4 data bits must be >= 8 (got $dataBits)")
+  require(addrBits >= 1, s"AXI4 addr bits must be >= 1 (got $addrBits)")
+  require(idBits >= 1, s"AXI4 id bits must be >= 1 (got $idBits)")
+  require(isPow2(dataBits), s"AXI4 data bits must be pow2 (got $dataBits)")
 
   val isRW = !isRO
   val isWO = false
 
   val awUserWidth: Int = 0
-  val wUserWidth: Int = 0
-  val bUserWidth: Int = 0
+  val wUserWidth:  Int = 0
+  val bUserWidth:  Int = 0
   val arUserWidth: Int = 0
-  val rUserWidth: Int = 0
+  val rUserWidth:  Int = 0
 }
 
 object irrevocable {

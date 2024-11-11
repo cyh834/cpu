@@ -15,7 +15,7 @@
 //  val actualTaken = Input(Bool())
 //  val ptype = Input(Ptype())
 //  val br_type = Input(Brtype())
-//  val isRVC = Input(Bool()) 
+//  val isRVC = Input(Bool())
 //  val nofull = Input(Bool())
 //  val leftvalid = Output(Bool())
 //  val bp_pc = Output(UInt(VAddrBits.W))
@@ -43,7 +43,7 @@
 //  val valid = Bool()
 //  val bits = UInt(3.W)
 //
-//  def hasJal = valid && !bits(0) 
+//  def hasJal = valid && !bits(0)
 //  def hasJalr = valid && bits(0)
 //  def hasCall = valid && bits(1)
 //  def hasRet = valid && bits(2)
@@ -82,7 +82,7 @@
 //  when(io.icache.fire){
 //    ridx := ridx + 1.U
 //  }
-//  
+//
 //  val pc = pc_read(io.icache.valid)
 //  io.icache.bits.addr := pc
 //  io.icache.valid := widx =/= ridx

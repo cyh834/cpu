@@ -12,7 +12,7 @@ object CPUMain extends SerializableModuleElaborator {
     def read(strs: Seq[String]) = Right(os.Path(strs.head, os.pwd))
   }
 
-  //从命令行中读取参数
+  // 从命令行中读取参数
   @main
   case class CPUParameterMain(
     @arg(name = "extensions") extensions: Seq[String]) {
@@ -22,7 +22,7 @@ object CPUMain extends SerializableModuleElaborator {
   implicit def CPUParameterMainParser: ParserForClass[CPUParameterMain] =
     ParserForClass[CPUParameterMain]
 
-  //将参数写入json文件
+  // 将参数写入json文件
   @main
   def config(
     @arg(name = "parameter") parameter:  CPUParameterMain,
@@ -30,7 +30,7 @@ object CPUMain extends SerializableModuleElaborator {
   ) =
     os.write.over(targetDir / s"${topName}.json", configImpl(parameter.convert))
 
-  //从json文件中读取参数
+  // 从json文件中读取参数
   @main
   def design(
     @arg(name = "parameter") parameter:  os.Path,

@@ -15,11 +15,11 @@ class InsUncacheResp extends Bundle {
 }
 
 class InstrUncacheIO extends Bundle {
-    val req = DecoupledIO(new InsUncacheReq )
-    val resp = Flipped(DecoupledIO(new InsUncacheResp))
+  val req = DecoupledIO(new InsUncacheReq)
+  val resp = Flipped(DecoupledIO(new InsUncacheResp))
 }
 
-class InstrUncache extends Module{
+class InstrUncache extends Module {
   val io = IO(new Bundle {
     val ifu = Flipped(new InstrUncacheIO)
     val mem = new AXI4

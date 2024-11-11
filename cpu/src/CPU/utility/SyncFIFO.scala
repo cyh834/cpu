@@ -19,16 +19,16 @@ abstract class FIFO[T <: Data](gen: T, depth: Int) extends Module {
 }
 
 class SyncFIFO[T <: Data](gen: T, depth: Int) extends FIFO(gen, depth) {
-  
-  val memReg = Reg(Vec(depth, gen))            // the register based memory
 
-  val wr_ptr = Counter(depth)                  //fifo write pointer
-  val rd_ptr = Counter(depth)                  //fifo read pointer
+  val memReg = Reg(Vec(depth, gen)) // the register based memory
 
-  val fullReg = RegInit(false.B)               //fifo full flag
-  val emptyReg = RegInit(true.B)               //fifo empty flag
+  val wr_ptr = Counter(depth) // fifo write pointer
+  val rd_ptr = Counter(depth) // fifo read pointer
 
-  //if write enable and fifo is not full, increment write pointer
+  val fullReg = RegInit(false.B) // fifo full flag
+  val emptyReg = RegInit(true.B) // fifo empty flag
+
+  // if write enable and fifo is not full, increment write pointer
   when(io.wr_en && !io.full) {
     memReg(wr_ptr.value) := io.data_in
     emptyReg := false.B
@@ -36,7 +36,7 @@ class SyncFIFO[T <: Data](gen: T, depth: Int) extends FIFO(gen, depth) {
     wr_ptr.inc()
   }
 
-  //if read enable and fifo is not empty, increment read pointer
+  // if read enable and fifo is not empty, increment read pointer
   when(io.rd_en && !io.empty) {
     fullReg := false.B
     emptyReg := (rd_ptr.value + 1.U) === wr_ptr.value
@@ -48,4 +48,3 @@ class SyncFIFO[T <: Data](gen: T, depth: Int) extends FIFO(gen, depth) {
   io.empty := emptyReg
 
 }
-

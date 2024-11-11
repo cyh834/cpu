@@ -6,17 +6,17 @@ import chisel3.util._
 trait AXI4ChiselBundle extends Bundle
 
 class AW(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle {
-  val id: UInt = UInt(idWidth.W)
-  val addr: UInt = UInt(addrWidth.W)
-  val len: UInt = UInt(8.W)
-  val size: UInt = UInt(3.W)
-  val burst: UInt = UInt(2.W)
-  val lock: Bool = Bool()
-  val cache: UInt = UInt(4.W)
-  val prot: UInt = UInt(3.W)
-  val qos: UInt = UInt(4.W)
+  val id:     UInt = UInt(idWidth.W)
+  val addr:   UInt = UInt(addrWidth.W)
+  val len:    UInt = UInt(8.W)
+  val size:   UInt = UInt(3.W)
+  val burst:  UInt = UInt(2.W)
+  val lock:   Bool = Bool()
+  val cache:  UInt = UInt(4.W)
+  val prot:   UInt = UInt(3.W)
+  val qos:    UInt = UInt(4.W)
   val region: UInt = UInt(4.W)
-  val user: UInt = UInt(awUserWidth.W)
+  val user:   UInt = UInt(awUserWidth.W)
 }
 
 class W(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle {
@@ -27,27 +27,27 @@ class W(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle {
 }
 
 class B(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle {
-  val id: UInt = UInt(idWidth.W)
+  val id:   UInt = UInt(idWidth.W)
   val resp: UInt = UInt(2.W)
   val user: UInt = UInt(bUserWidth.W)
 }
 
 class AR(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle {
-  val id: UInt = UInt(idWidth.W)
-  val addr: UInt = UInt(addrWidth.W)
-  val len: UInt = UInt(8.W)
-  val size: UInt = UInt(3.W)
-  val burst: UInt = UInt(2.W)
-  val lock: Bool = Bool()
-  val cache: UInt = UInt(4.W)
-  val prot: UInt = UInt(3.W)
-  val qos: UInt = UInt(4.W)
+  val id:     UInt = UInt(idWidth.W)
+  val addr:   UInt = UInt(addrWidth.W)
+  val len:    UInt = UInt(8.W)
+  val size:   UInt = UInt(3.W)
+  val burst:  UInt = UInt(2.W)
+  val lock:   Bool = Bool()
+  val cache:  UInt = UInt(4.W)
+  val prot:   UInt = UInt(3.W)
+  val qos:    UInt = UInt(4.W)
   val region: UInt = UInt(4.W)
-  val user: UInt = UInt(arUserWidth.W)
+  val user:   UInt = UInt(arUserWidth.W)
 }
 
 class R(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle {
-  val id: UInt = UInt(idWidth.W)
+  val id:   UInt = UInt(idWidth.W)
   val data: UInt = UInt(dataWidth.W)
   val resp: UInt = UInt(2.W)
   val last: Bool = Bool()
@@ -84,21 +84,18 @@ class AXI4RWIrrevocable(val parameter: AXI4BundleParameter)
 
 object AXI4RWIrrevocable {
   def apply(parameter: AXI4BundleParameter) = new AXI4RWIrrevocable(parameter)
-  //implicit val viewVerilog: chisel3.experimental.dataview.DataView[
+  // implicit val viewVerilog: chisel3.experimental.dataview.DataView[
   //  AXI4RWIrrevocable,
   //  AXI4RWIrrevocableVerilog
-  //] = rwC2V
+  // ] = rwC2V
 }
 
-class AXI4ROIrrevocable(val parameter: AXI4BundleParameter)
-    extends AXI4ChiselBundle
-    with HasAR
-    with HasR
+class AXI4ROIrrevocable(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle with HasAR with HasR
 
 object AXI4ROIrrevocable {
   def apply(parameter: AXI4BundleParameter) = new AXI4ROIrrevocable(parameter)
-  //implicit val viewVerilog: chisel3.experimental.dataview.DataView[
+  // implicit val viewVerilog: chisel3.experimental.dataview.DataView[
   //  AXI4ROIrrevocable,
   //  AXI4ROIrrevocableVerilog
-  //] = roC2V
+  // ] = roC2V
 }
