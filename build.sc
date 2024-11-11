@@ -29,9 +29,9 @@ trait Chisel extends millbuild.dependencies.chisel.build.Chisel {
 
 object rvdecoderdb extends RVDecoderDB
 trait RVDecoderDB extends millbuild.dependencies.rvdecoderdb.common.RVDecoderDBJVMModule with ScalaModule {
-  def scalaVersion            = T(v.scala)
-  def osLibIvy                = v.oslib
-  def upickleIvy              = v.upickle
+  def scalaVersion            = T(deps.scalaVer)
+  def osLibIvy                = deps.oslib
+  def upickleIvy              = deps.upickle
   override def millSourcePath = os.pwd / "dependencies" / "rvdecoderdb" / "rvdecoderdb"
 }
 

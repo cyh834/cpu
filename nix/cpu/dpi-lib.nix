@@ -19,10 +19,8 @@ rustPlatform.buildRustPackage rec {
     ++ lib.optionals vpi [ "vpi" ] ++ lib.optionals enable-trace [ "trace" ];
 
   env = {
-    DESIGN_DATA_WIDTH = tbConfig.cpuParameter.width;
     DESIGN_TIMEOUT = tbConfig.timeout;
-    # DESIGN_TEST_SIZE = tbConfig.testSize;
-    # CLOCK_FLIP_TIME = tbConfig.testVerbatimParameter.clockFlipTick * timescale;
+    CLOCK_FLIP_TIME = tbConfig.testVerbatimParameter.clockFlipTick * timescale;
   };
 
   passthru = {

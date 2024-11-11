@@ -1,4 +1,8 @@
 {
-    "width": 16,
-    "useAsyncReset": false
+    "extensions": [
+        "rv64_i",
+        "rv_m",
+        "rv_a",
+        "rv_c"
+    ]
 }

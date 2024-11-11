@@ -1,14 +1,18 @@
 {
     "testVerbatimParameter": {
-        "useAsyncReset": false,
         "initFunctionName": "cpu_init",
+        "finalFunctionName": "cpu_final",
         "dumpFunctionName": "dump_wave",
         "clockFlipTick": 1,
         "resetFlipTick": 100
     },
     "cpuParameter": {
-        "width": 16,
-        "useAsyncReset": false
+        "extensions": [
+            "rv64_i",
+            "rv_m",
+            "rv_a",
+            "rv_c"
+        ]
     },
     "timeout": 70000,
     "testSize": 100

@@ -18,8 +18,7 @@ object CPUTestBenchParameter {
 case class CPUTestBenchParameter(
   testVerbatimParameter: TestVerbatimParameter,
   cpuParameter:          CPUParameter,
-  timeout:               Int,
-  testSize:              Int)
+  timeout:               Int)
     extends SerializableModuleParameter {
 }
 
@@ -75,7 +74,6 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
 
   val CPUProbe = probe.read(dut.io.probe)
   RawClockedVoidFunctionCall("retire_instruction")(clock, CPUProbe.retire.valid, CPUProbe.retire.bits)
-
 
 }
 
