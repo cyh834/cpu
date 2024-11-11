@@ -58,10 +58,10 @@ class IDU(parameter: IDUParameter)
 
   val decodeResult = Decoder.decode(param)(io.in.bits.inst)
 
-  io.out.bits.srcType(0) := decodeResult(ReadSrc1)
-  io.out.bits.srcType(1) := decodeResult(ReadSrc2)
-  io.out.bits.fuType := decodeResult(FuType)
-  io.out.bits.fuOpType := decodeResult(FuOpType)
+  io.out.bits.srcType(0) := decodeResult(ReadRs1)
+  io.out.bits.srcType(1) := decodeResult(ReadRs2)
+  io.out.bits.fuType := decodeResult(Fu)
+  io.out.bits.fuOpType := decodeResult(FuOp)
   io.out.bits.lsrc(0) := io.in.bits.inst(19, 15)
   io.out.bits.lsrc(1) := io.in.bits.inst(24, 20)
   io.out.bits.ldest := io.in.bits.inst(11, 7)
@@ -78,7 +78,7 @@ class IDU(parameter: IDUParameter)
   io.out.brtype := Mux(
     isRet(instr),
     Brtype.ret,
-    Mux(isCall(instr), Brtype.call, Mux(decode.isbru(decodeResult(FuType)), Brtype.branch, Brtype.jump))
+    Mux(isCall(instr), Brtype.call, Mux(decode.isbru(decodeResult(Fu)), Brtype.branch, Brtype.jump))
   )
 
   io.in.ready := io.out.ready
@@ -91,7 +91,7 @@ class IDU(parameter: IDUParameter)
   probeWire.isRVC := isRVC(instr)
 }
 
-//TODO: 移到IDU作为pre-decode?
+//TODO: 移到IFU作为pre-decode?
 trait BtbDecode extends HascpuParameter {
   def isRVC(inst: UInt): Bool = (inst(1, 0) =/= 3.U)
 

@@ -1,26 +1,26 @@
 package cpu.frontend.decoder
 
-object FuOpType {
-  def apply(CPUDecodePattern: CPUDecodePattern): FuOptype = {
-    val tpe: Option[FuOptype] = Seq(
-      (isALU(CPUDecodePattern) -> ALUOpType(CPUDecodePattern))
-        .isBRU((CPUDecodePattern) -> BRUOpType(CPUDecodePattern))
-        .isLDU((CPUDecodePattern) -> LSUOpType(CPUDecodePattern))
-        .isSTU((CPUDecodePattern) -> LSUOpType(CPUDecodePattern))
-        .isMOU((CPUDecodePattern) -> LSUOpType(CPUDecodePattern))
-        .isMUL((CPUDecodePattern) -> MulOpType(CPUDecodePattern))
-        .isDIV((CPUDecodePattern) -> DivOpType(CPUDecodePattern))
-        .isJMP((CPUDecodePattern) -> JumpOpType(CPUDecodePattern))
-        .isFENCE((CPUDecodePattern) -> FenceOpType(CPUDecodePattern))
-        .isCSR((CPUDecodePattern) -> CSROpType(CPUDecodePattern))
+object FUOpType {
+  def apply(cpuDecodePattern: CPUDecodePattern): FUOptype = {
+    val tpe: Option[FUOptype] = Seq(
+        isAlu(cpuDecodePattern) ->   AluUOP    (cpuDecodePattern)
+        isBru(cpuDecodePattern) ->   BruUOP    (cpuDecodePattern)
+        isLdu(cpuDecodePattern) ->   LsuUOP    (cpuDecodePattern)
+        isStu(cpuDecodePattern) ->   LsuUOP    (cpuDecodePattern)
+        isMou(cpuDecodePattern) ->   LsuUOP    (cpuDecodePattern)
+        isMul(cpuDecodePattern) ->   MulUOP    (cpuDecodePattern)
+        isDiv(cpuDecodePattern) ->   DivUOP    (cpuDecodePattern)
+        isJmp(cpuDecodePattern) ->   JumpUOP   (cpuDecodePattern)
+        isFence(cpuDecodePattern)->  FenceUOP  (cpuDecodePattern)
+        isCsr(cpuDecodePattern) ->   CsrUOP    (cpuDecodePattern)
     ).collectFirst {
-      case (fn, tpe) if fn => FuOptype(tpe)
+      case (fn, tpe) if fn => FUOptype(tpe)
     }
     require(tpe.size <= 1)
-    tpe.getOrElse(FuOptype(UopDC))
+    tpe.getOrElse(FUOptype(UopDC))
   }
 }
 
-case class FuOptype(value: Uop) extends UopDecodeAttribute[Uop] {
+case class FUOptype(value: Uop) extends UopDecodeAttribute[Uop] {
   override val description: String = "uop for mask unit."
 }

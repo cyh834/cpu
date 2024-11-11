@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 
 //执行模块类型
-object futype {
+object FuType {
   def num = 9
 
   def alu = "b0000".U
@@ -116,20 +116,6 @@ object ALUOpType {
   def apply() = UInt(FuOpTypeWidth.W)
 }
 
-object InstrType {
-  def R = "b000".U
-  def I = "b001".U
-  def S = "b010".U
-  def B = "b011".U
-  def U = "b100".U
-  def J = "b101".U
-  def INVALID_INSTR = "b0110".U
-
-  // def X      = BitPat("b000")
-  def apply() = UInt(3.W)
-
-}
-
 object BRUOpType {
   // branch
   def beq = "b000_000".U
@@ -221,3 +207,17 @@ object ExceptionVec {
   val ExceptionVecSize = 24
   def apply() = Vec(ExceptionVecSize, Bool())
 }
+
+//object InstrType {
+//  def R = "b000".U
+//  def I = "b001".U
+//  def S = "b010".U
+//  def B = "b011".U
+//  def U = "b100".U
+//  def J = "b101".U
+//  def INVALID_INSTR = "b0110".U
+//
+//  // def X      = BitPat("b000")
+//  def apply() = UInt(3.W)
+//
+//}
