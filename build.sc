@@ -36,7 +36,7 @@ trait RVDecoderDB extends millbuild.dependencies.rvdecoderdb.common.RVDecoderDBJ
 }
 
 object cpu extends CPU
-trait CPU extends millbuild.common.HasChisel with ScalafmtModule with HasRVDecoderDB {
+trait CPU extends millbuild.common.HasChisel with ScalafmtModule with millbuild.common.HasRVDecoderDB {
   def scalaVersion = T(deps.scalaVer)
 
   def chiselModule = Some(chisel)
