@@ -61,10 +61,12 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
   // For each timeout ticks, check it
   val (_, callWatchdog) = Counter(true.B, parameter.timeout / 2)
   // should be in sync with the enum in driver.rs
-  val GoodTrap :: BadTrap :: Timeout :: Running :: Nil = Enum(4)
-  val watchdogCode = RawUnclockedNonVoidFunctionCall("cpu_watchdog", UInt(8.W))(callWatchdog)
-  when(watchdogCode =/= Running) {
-    stop(cf"""{"event":"SimulationStop","reason": ${watchdogCode},"cycle":${simulationTime}}\n""")
+  locally {
+    val GoodTrap :: BadTrap :: Timeout :: Running :: Nil = Enum(4)
+    val watchdogCode = RawUnclockedNonVoidFunctionCall("cpu_watchdog", UInt(8.W))(callWatchdog)
+    when(watchdogCode =/= Running) {
+      stop(cf"""{"event":"SimulationStop","reason": ${watchdogCode},"cycle":${simulationTime}}\n""")
+    }
   }
 
   val axi4vip = new AXI4VIP(parameter.cpuParameter.axi4BundleParameter)

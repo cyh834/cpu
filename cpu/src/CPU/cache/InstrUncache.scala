@@ -5,6 +5,7 @@ import chisel3.util._
 import cpu._
 import amba.axi4._
 import amba.axi4.AXI4Parameters._
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
 class InsUncacheReq extends Bundle {
   val addr = UInt(64.W)
@@ -19,12 +20,14 @@ class InstrUncacheIO extends Bundle {
   val resp = Flipped(DecoupledIO(new InsUncacheResp))
 }
 
-class InstrUncache extends Module {
-  val io = IO(new Bundle {
-    val ifu = Flipped(new InstrUncacheIO)
-    val mem = new AXI4
-    val flush = Input(Bool())
-  })
+class InstrUncacheInterface(parameter: CPUParameter) extends Bundle {
+  val ifu = Flipped(new InstrUncacheIO)
+  val mem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
+  val flush = Input(Bool())
+}
+
+class InstrUncache(parameter: CPUParameter) 
+  extends FixedIORawModule(new InstrUncacheInterface(parameter)){
   val needFlush = RegInit(false.B)
   when(io.flush) {
     needFlush := true.B
@@ -40,8 +43,8 @@ class InstrUncache extends Module {
   io.mem.ar.bits.addr := io.ifu.req.bits.addr
   io.mem.ar.bits.id := id
   io.mem.ar.bits.len := 0.U
-  io.mem.ar.bits.size := AXI4SIZE.U
-  io.mem.ar.bits.burst := BURST_INCR
+  io.mem.ar.bits.size := 3.U
+  io.mem.ar.bits.burst := burst.INCR
   io.mem.ar.bits.lock := 0.U
   io.mem.ar.bits.cache := 0.U
   io.mem.ar.bits.prot := 0.U

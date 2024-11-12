@@ -3,8 +3,8 @@ package cpu.backend.fu
 import chisel3._
 import chisel3.util._
 import chisel3.stage._
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import cpu._
-import cpu.frontend.decode._
 import utility._
 
 class ALUInterface(parameter: CPUParameter) extends Bundle {
@@ -18,6 +18,7 @@ class ALU(parameter: CPUParameter)
     with SerializableModule[CPUParameter] {
 
   val (src1, src2, func) = (io.src(0), io.src(1), io.func)
+  val XLEN = parameter.XLEN
 
   val subop = ALUOpType.isSubOp(func)
   val wop = ALUOpType.isWordOp(func)

@@ -1,23 +1,28 @@
-package core.backend.fu
+package cpu.backend.fu
 
 import chisel3._
 import chisel3.util._
 import chisel3.stage._
-import core._
-import core.frontend.decode._
+import cpu._
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import utility._
 
-class JMP extends CoreModule {
-  val io = IO(new Bundle() {
-    val src = Vec(numSrc, Input(UInt(XLEN.W)))
-    val pc = Input(UInt(XLEN.W))
-    val func = Input(FuOpType())
-    val isRVC = Input(Bool())
-    val result, target = Output(UInt(XLEN.W))
-    val mistarget = Output(Bool())
-    // val isAuipc = Output(Bool())
-  })
+class JMPInterface(parameter: CPUParameter) extends Bundle {
+  val src = Vec(2, Input(UInt(parameter.XLEN.W)))
+  val pc = Input(UInt(parameter.XLEN.W))
+  val func = Input(FuOpType())
+  val isRVC = Input(Bool())
+  val result, target = Output(UInt(parameter.XLEN.W))
+  val mistarget = Output(Bool())
+  // val isAuipc = Output(Bool())
+}
+
+class JMP(parameter: CPUParameter)
+    extends FixedIORawModule(new JMPInterface(parameter))
+    with SerializableModule[CPUParameter] {
+
   val (pc, func, isRVC) = (io.pc, io.func, io.isRVC)
+  val XLEN = parameter.XLEN
 
   // val isJalr = JumpOpType.isJalr(func)
   val isAuipc = JumpOpType.isAuipc(func)

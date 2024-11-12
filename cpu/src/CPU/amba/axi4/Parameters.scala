@@ -8,15 +8,11 @@ object AXI4BundleParameter {
     upickle.default.macroRW[AXI4BundleParameter]
 }
 
-case class AXI4BundleParameters(
+case class AXI4BundleParameter(
   idWidth:   Int,
   dataWidth: Int,
   addrWidth: Int,
   isRO:      Boolean) {
-  require(dataBits >= 8, s"AXI4 data bits must be >= 8 (got $dataBits)")
-  require(addrBits >= 1, s"AXI4 addr bits must be >= 1 (got $addrBits)")
-  require(idBits >= 1, s"AXI4 id bits must be >= 1 (got $idBits)")
-  require(isPow2(dataBits), s"AXI4 data bits must be pow2 (got $dataBits)")
 
   val isRW = !isRO
   val isWO = false
@@ -30,7 +26,15 @@ case class AXI4BundleParameters(
 
 object irrevocable {
   def apply(parameter: AXI4BundleParameter): AXI4ChiselBundle = {
-    if (parameter.isRO) new AXI4ROIrrevocable(parameter)
-    else if (parameter.isRW) new AXI4RWIrrevocable(parameter)
+    if (parameter.isRW) new AXI4RWIrrevocable(parameter)
+    else new AXI4ROIrrevocable(parameter)
   }
+}
+
+object AXI4Parameters{
+   object burst {
+     val FIXED = 0.U(2.W)
+     val INCR = 1.U(2.W)
+     val WRAP = 2.U(2.W)
+   }
 }

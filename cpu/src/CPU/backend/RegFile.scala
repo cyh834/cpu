@@ -3,6 +3,8 @@ package cpu.backend
 import chisel3._
 import chisel3.util._
 import chisel3.probe.{define, Probe, ProbeValue}
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
 import utility._
 import cpu._
@@ -12,9 +14,9 @@ object RegFileParameter {
     upickle.default.macroRW
 }
 
-case class RegFileParameter(addrWidth: UInt, dataWidth: UInt) extends SerializableModuleParameter {
-  numReadPorts = 2
-  numWritePorts = 1
+case class RegFileParameter(addrWidth: Int, dataWidth: Int, nrReg: Int) extends SerializableModuleParameter {
+  val numReadPorts = 2
+  val numWritePorts = 1
 }
 
 class RfReadPort(parameter: RegFileParameter) extends Bundle {
@@ -33,17 +35,18 @@ class RegFileInterface(parameter: RegFileParameter) extends Bundle {
   val writePorts = Vec(parameter.numWritePorts, new RfWritePort(parameter))
 }
 
+@instantiable
 class RegFile(val parameter: RegFileParameter)
     extends FixedIORawModule(new RegFileInterface(parameter))
     with SerializableModule[RegFileParameter] {
 
-  val gpr = RegInit(VecInit(Seq.fill(parameter.NRReg)(0.U(parameter.dataWidth.W))))
+  val gpr = RegInit(VecInit(Seq.fill(parameter.nrReg)(0.U(parameter.dataWidth.W))))
 
-  for (i <- 0 until numReadPorts) {
+  for (i <- 0 until parameter.numReadPorts) {
     io.readPorts(i).data := gpr(io.readPorts(i).addr)
   }
 
-  for (i <- 0 until numWritePorts) {
+  for (i <- 0 until parameter.numWritePorts) {
     when(io.writePorts(i).wen && io.writePorts(i).addr =/= 0.U) {
       gpr(io.writePorts(i).addr) := io.writePorts(i).data
     }

@@ -34,7 +34,7 @@ object isAlu {
       "subw",
       "sllw",
       "sraw",
-      "srlw",
+      "srlw"
     )
     allMatched.contains(cpuDecodePattern.instruction.name)
   }

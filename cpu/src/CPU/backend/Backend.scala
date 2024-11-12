@@ -3,6 +3,8 @@ package cpu.backend
 import chisel3._
 import chisel3.util._
 import chisel3.probe.{define, Probe, ProbeValue}
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
 import utility._
 import amba.axi4._
@@ -10,14 +12,12 @@ import cpu._
 import cpu.frontend._
 
 class BackendProbe(parameter: CPUParameter) extends Bundle {
-  val instr = UInt(32.W)
-  val pc = UInt(parameter.VAddrBits.W)
-  val isRVC = Bool()
+  val retire: Valid[Retire] = Valid(new Retire)
 }
 
 class BackendInterface(parameter: CPUParameter) extends Bundle {
-  val in = Flipped(Decoupled(new DecodeIO))
-  val dmem = new AXI4RWIrrevocable(parameter.dataMemoryParameter)
+  val in = Flipped(Decoupled(new DecodeIO(parameter.iduParameter)))
+  val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
   val flush = Input(UInt(2.W))
   val probe = Output(Probe(new BackendProbe(parameter), layers.Verification))
 }
@@ -40,21 +40,19 @@ class Backend(val parameter: CPUParameter)
   isu.io.flush := io.flush(0)
   exu.io.flush := io.flush(1)
 
-  val regfile = Instance(new RegFile(parameter.RegFileParameter))
+  val regfile = Instantiate(new RegFile(parameter.regfileParameter))
   regfile.io.readPorts <> isu.io.rfread
   regfile.io.writePorts <> wbu.io.rfwrite
 
-  val scoreboard = Instance(new ScoreBoard(parameter.ScoreBoardParameter))
+  val scoreboard = Instantiate(new ScoreBoard(parameter.scoreboardParameter))
   scoreboard.io.isu <> isu.io.scoreboard
   scoreboard.io.wb <> wbu.io.scoreboard
 
   io.dmem <> exu.io.dmem
 
   val probeWire: BackendProbe = Wire(new BackendProbe(parameter))
-  define(io.out.probe, ProbeValue(probeWire))
-  probeWire.instr := DontCare
-  probeWire.pc := DontCare
-  probeWire.isRVC := DontCare
+  define(io.probe, ProbeValue(probeWire))
+  probeWire.retire := DontCare
 
   // io.redirect <> wbu.io.redirect
   // forward

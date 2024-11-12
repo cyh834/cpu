@@ -5,12 +5,14 @@ import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantia
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.probe.{define, Probe, ProbeValue}
 import chisel3.properties.{AnyClassType, Class, Property}
-import chisel3.util.{DecoupledIO, Valid}
+import chisel3.util._
+import chisel3.util.experimental.decode.DecodePattern
 import org.chipsalliance.rvdecoderdb.Instruction
 
 import amba.axi4._
 import cpu.frontend._
 import cpu.backend._
+import cpu.frontend.decoder._
 import utility._
 
 object CPUParameter {
@@ -20,7 +22,7 @@ object CPUParameter {
 
 /** Parameter of [[CPU]] */
 case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParameter {
-  val allInstructions: Seq[Instruction] = {
+  val instructions: Seq[Instruction] = {
     org.chipsalliance.rvdecoderdb
       .instructions(org.chipsalliance.rvdecoderdb.extractResource(getClass.getClassLoader))
       .filter { instruction =>
@@ -30,13 +32,22 @@ case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParam
             Seq("rv_i", "rv_zicsr", "rv_zifencei", "rv_system")
         ).contains(instruction.instructionSet.name)
       }
-  }.sortBy(_.instructionSet.name)
+  }
+  .toSeq
+  .filter {
+    // special case for rv32 pseudo from rv64
+    case i if i.pseudoFrom.isDefined && Seq("slli", "srli", "srai").contains(i.name) => true
+    case i if i.pseudoFrom.isDefined                                                 => false
+    case _                                                                           => true
+  }
+  .sortBy(_.instructionSet.name)
+
   private def hasInstructionSet(setName: String): Boolean =
     instructions.flatMap(_.instructionSets.map(_.name)).contains(setName)
 
-  val decoderParam: DecoderParam = DecoderParam(allInstructions)
+  val decoderParam: DecoderParam = DecoderParam(instructions)
 
-  def xLen: Int =
+  def XLEN: Int =
     (hasInstructionSet("rv32_i"), hasInstructionSet("rv64_i")) match {
       case (true, true)   => throw new Exception("cannot support both rv32 and rv64 together")
       case (true, false)  => 32
@@ -47,7 +58,7 @@ case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParam
   def usingAtomics = hasInstructionSet("rv_a") || hasInstructionSet("rv64_a")
   def usingCompressed = hasInstructionSet("rv_c")
 
-  /** paraemter for AXI4. */
+  /** parameter for AXI4. */
   val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
     addrWidth = XLEN,
     dataWidth = 64,
@@ -55,7 +66,7 @@ case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParam
     isRO = true
   )
 
-  val loadStoreAXI: AXI4BundleParameter = AXI4BundleParameter(
+  val loadStoreAXIParameter: AXI4BundleParameter = AXI4BundleParameter(
     addrWidth = XLEN,
     dataWidth = 64,
     idWidth = 1,
@@ -80,15 +91,25 @@ case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParam
   val AXI4SIZE:       Int = log2Up(DataBytes)
   val NrPhyRegs:      Int = 32
   val LogicRegsWidth: Int = log2Up(NrPhyRegs)
+  val NumSrc:         Int = 2
 
-  val RegFileParameter: RegFileParameter = RegFileParameter(
+  val regfileParameter: RegFileParameter = RegFileParameter(
     addrWidth = LogicRegsWidth,
-    dataWidth = DataBits
+    dataWidth = DataBits,
+    nrReg = NrPhyRegs
   )
 
-  val ScoreBoardParameter: ScoreBoardParameter = ScoreBoardParameter(
+  val scoreboardParameter: ScoreBoardParameter = ScoreBoardParameter(
     addrWidth = LogicRegsWidth,
-    dataWidth = DataBits
+    dataWidth = DataBits,
+    numSrc = NumSrc
+  )
+
+  val iduParameter: IDUParameter = IDUParameter(
+    addrBits = VAddrBits,
+    numSrc = NumSrc,
+    regsWidth = LogicRegsWidth,
+    xlen = XLEN
   )
 }
 
@@ -138,8 +159,8 @@ class CPUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(Bool())
   val imem = new AXI4ROIrrevocable(parameter.instructionFetchParameter)
-  val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXI)
-  val intr = Input(UInt(paraemter.NrExtIntr.W))
+  val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
+  val intr = Input(UInt(parameter.NrExtIntr.W))
   val probe = Output(Probe(new CPUProbe(parameter), layers.Verification))
   val om = Output(Property[AnyClassType]())
 }

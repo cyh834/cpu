@@ -1,24 +1,29 @@
-package core.backend.fu
+package cpu.backend.fu
 
 import chisel3._
 import chisel3.util._
 import chisel3.stage._
-import core._
-import core.frontend.decode._
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import cpu._
 import utility._
 
-class BRH extends CoreModule {
-  val io = IO(new Bundle() {
-    val src = Vec(2, Input(UInt(XLEN.W)))
-    val func = Input(FuOpType())
-    val pred_taken = Input(Bool())
-    val taken, mispredict = Output(Bool())
-    val pc = Input(UInt(XLEN.W))
-    val offset = Input(UInt(XLEN.W))
-    val target = Output(UInt(XLEN.W))
-  })
+class BRHInterface(parameter: CPUParameter) extends Bundle {
+  val XLEN = parameter.XLEN
+
+  val src = Vec(2, Input(UInt(XLEN.W)))
+  val func = Input(FuOpType())
+  val pred_taken = Input(Bool())
+  val taken, mispredict = Output(Bool())
+  val pc = Input(UInt(XLEN.W))
+  val offset = Input(UInt(XLEN.W))
+  val target = Output(UInt(XLEN.W))
+}
+class BRH(parameter: CPUParameter)
+    extends FixedIORawModule(new BRHInterface(parameter))
+    with SerializableModule[CPUParameter] {
 
   val (src1, src2, func) = (io.src(0), io.src(1), io.func)
+  val XLEN = parameter.XLEN
 
   val sub = src1 - src2
   val sltu = !sub(XLEN - 1)

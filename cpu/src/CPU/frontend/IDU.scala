@@ -1,13 +1,12 @@
 package cpu.frontend
 
 import chisel3._
-import chisel3.util.BitPat
+import chisel3.util._
 import chisel3.util.experimental.decode._
 import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.probe.{define, Probe, ProbeValue}
 import chisel3.properties.{AnyClassType, Class, Property}
-import chisel3.util.{DecoupledIO, Valid}
 import org.chipsalliance.rvdecoderdb.Instruction
 
 import cpu._
@@ -18,26 +17,32 @@ object IDUParameter {
     upickle.default.macroRW
 }
 
-case class IDUParameter(LogicRegsWidth: Int, XLEN: Int) extends SerializableModuleParameter {
-  val numSrc = 2
+case class IDUParameter(addrBits: Int, numSrc: Int, regsWidth: Int, xlen: Int ) extends SerializableModuleParameter
+
+trait IDUBundle extends Bundle {
+  val parameter: IDUParameter
+  val addrBits = parameter.addrBits
+  val regsWidth = parameter.regsWidth
+  val numSrc = parameter.numSrc
+  val xlen = parameter.xlen
 }
 
-class IDUProbe(parameter: IDUParameter) extends Bundle {
+class IDUProbe(parameter: IDUParameter) extends IDUBundle {
   val instr = UInt(32.W)
-  val pc = UInt(parameter.VAddrBits.W)
-  val isRVC = Bool()
 }
 
-class DecodeIO(parameter: IDUParameter) extends Bundle {
-  val srcType = Vec(parameter.numSrc, SrcType())
+class DecodeIO(parameter: IDUParameter) extends IDUBundle {
+  val srcIsReg = Vec(numSrc, Bool())
   val fuType = FuType()
   val fuOpType = FuOpType()
-  val lsrc = Vec(parameter.numSrc, UInt(parameter.LogicRegsWidth.W))
-  val ldest = UInt(parameter.LogicRegsWidth.W)
+  val lsrc = Vec(numSrc, UInt(regsWidth.W))
+  val ldest = UInt(regsWidth.W)
   val rfWen = Bool()
 
-  val src = Vec(parameter.numSrc, UInt(parameter.XLEN.W))
-  val imm = UInt(parameter.XLEN.W)
+  val src = Vec(numSrc, UInt(xlen.W))
+  val imm = UInt(xlen.W)
+  val pc = UInt(addrBits.W)
+  val isRVC = Bool()
 
   val pred_taken = Bool()
   val brtype = Bool()
@@ -45,8 +50,8 @@ class DecodeIO(parameter: IDUParameter) extends Bundle {
   val probe = Output(Probe(new IDUProbe(parameter), layers.Verification))
 }
 
-class IDUInterface(parameter: IDUParameter) extends Bundle {
-  val in = Flipped(Decoupled(new IBUF2IDU(parameter.VAddrBits)))
+class IDUInterface(parameter: IDUParameter) extends IDUBundle {
+  val in = Flipped(Decoupled(new IBUF2IDU(addrBits)))
   val out = Decoupled(new DecodeIO(parameter))
 }
 
@@ -58,8 +63,8 @@ class IDU(parameter: IDUParameter)
 
   val decodeResult = Decoder.decode(param)(io.in.bits.inst)
 
-  io.out.bits.srcType(0) := decodeResult(ReadRs1)
-  io.out.bits.srcType(1) := decodeResult(ReadRs2)
+  io.out.bits.srcIsReg(0) := decodeResult(ReadRs1)
+  io.out.bits.srcIsReg(1) := decodeResult(ReadRs2)
   io.out.bits.fuType := decodeResult(Fu)
   io.out.bits.fuOpType := decodeResult(FuOp)
   io.out.bits.lsrc(0) := io.in.bits.inst(19, 15)
@@ -73,6 +78,8 @@ class IDU(parameter: IDUParameter)
   io.out.imm := decodeResult(Imm)
 
   io.out.pred_taken := io.in.bits.pred_taken
+  io.out.pc := io.in.bits.pc
+  io.out.isRVC := isRVC(instr)
 
   val instr = io.in.bits.inst
   io.out.brtype := Mux(
@@ -87,8 +94,6 @@ class IDU(parameter: IDUParameter)
   val probeWire: IDUProbe = Wire(new IDUProbe(parameter))
   define(io.out.probe, ProbeValue(probeWire))
   probeWire.instr := instr
-  probeWire.pc := io.in.bits.pc
-  probeWire.isRVC := isRVC(instr)
 }
 
 //TODO: 移到IFU作为pre-decode?

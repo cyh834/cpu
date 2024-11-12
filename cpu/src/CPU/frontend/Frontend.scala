@@ -2,6 +2,8 @@ package cpu.frontend
 
 import chisel3._
 import chisel3.util._
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 
 import utility._
 import amba.axi4._
@@ -10,7 +12,7 @@ import cpu.cache.InstrUncache
 
 class FrontendInterface(parameter: CPUParameter) extends Bundle {
   val imem = new AXI4ROIrrevocable(parameter.instructionFetchParameter)
-  val out = Decoupled(new DecodeIO)
+  val out = Decoupled(new DecodeIO(parameter.iduParameter))
 }
 
 @instantiable
@@ -27,7 +29,7 @@ class Frontend(val parameter: CPUParameter)
 
   io.out <> idu.io.out
 
-  val uncache: Instance[InstrUncache] = Instantiate(new InstrUncache(paraemter))
+  val uncache: Instance[InstrUncache] = Instantiate(new InstrUncache(parameter))
   uncache.io.flush := false.B
   uncache.io.ifu <> ifu.io.imem
   io.imem <> uncache.io.mem

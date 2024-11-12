@@ -6,9 +6,9 @@ object isBru {
       "beq",
       "bne",
       "bge",
-      "bgeu"
+      "bgeu",
       "blt",
-      "bltu",
+      "bltu"
     )
     allMatched.contains(cpuDecodePattern.instruction.name)
   }
