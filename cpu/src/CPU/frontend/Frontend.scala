@@ -44,4 +44,13 @@ class Frontend(val parameter: CPUParameter)
   uncache.io.flush := false.B
   uncache.io.ifu <> ifu.io.imem
   io.imem <> uncache.io.mem
+
+  ifu.io.clock := io.clock
+  ifu.io.reset := io.reset
+  ibuf.io.clock := io.clock
+  ibuf.io.reset := io.reset
+  idu.io.clock := io.clock
+  idu.io.reset := io.reset
+  uncache.io.clock := io.clock
+  uncache.io.reset := io.reset
 }

@@ -43,4 +43,6 @@ class IBUF(val parameter: IBUFParameter)
   buf.io.rd_en := io.out.fire
   buf.io.wr_en := io.in.fire
   buf.io.data_in := io.in.bits
+  buf.io.clock := io.clock
+  buf.io.reset := io.reset
 }

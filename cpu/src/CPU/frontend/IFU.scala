@@ -63,6 +63,8 @@ class IFU(val parameter: CPUParameter)
   // bpu.io.ras_update.bits.isRVC  := isrvc
   // bpu.io.ras_update.valid := (isRet(inst) || isCall(inst)) && io.out.fire
   bpu.io.update := io.bpuUpdate
+  bpu.io.clock := io.clock
+  bpu.io.reset := io.reset
 }
 
 //TODO: 支持32位

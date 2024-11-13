@@ -55,6 +55,7 @@ class InstrUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter)
   io.mem.ar.bits.cache := 0.U
   io.mem.ar.bits.prot := 0.U
   io.mem.ar.bits.qos := 0.U
+  io.mem.ar.bits.region := 0.U
   io.mem.ar.bits.user := 0.U
 
   val flush = needFlush || io.flush

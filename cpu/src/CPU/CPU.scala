@@ -187,14 +187,22 @@ class CPU(val parameter: CPUParameter)
   override protected def implicitReset: Reset = io.reset
 
   val frontend: Instance[Frontend] = Instantiate(new Frontend(parameter))
-  val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
-  PipelineConnect(frontend.io.out, backend.io.in, false.B, false.B)
-  frontend.io.bpuUpdate <> backend.io.bpuUpdate
+  //val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
+  //backend.io.in := DontCare
+  //backend.io.flush := DontCare
+  //PipelineConnect(frontend.io.out, backend.io.in, false.B, false.B)
+  //frontend.io.bpuUpdate <> backend.io.bpuUpdate
+  frontend.io.clock := io.clock
+  frontend.io.reset := io.reset
+  frontend.io.out.ready := DontCare
+  frontend.io.bpuUpdate := DontCare
 
+  io.imem <> frontend.io.imem
+  io.dmem := DontCare//backend.io.dmem
   // Assign Probe
   val probeWire: CPUProbe = Wire(new CPUProbe(parameter))
   define(io.probe, ProbeValue(probeWire))
-  probeWire.retire := backend.io.probe.retire
+  probeWire.retire := DontCare//backend.io.probe.retire
 
   // Assign Metadata
   val omInstance: Instance[CPUOM] = Instantiate(new CPUOM(parameter))
