@@ -2,8 +2,12 @@ package fifo
 
 import chisel3._
 import chisel3.util._
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
+import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-class FIFOIO[T <: Data](private val gen: T) extends Bundle {
+class FIFOIO[T <: Data](private val gen: T, val useAsyncReset: Boolean) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (useAsyncReset) AsyncReset() else Bool())
   val wr_en = Input(Bool())
   val rd_en = Input(Bool())
   val data_in = Input(gen)
@@ -12,13 +16,18 @@ class FIFOIO[T <: Data](private val gen: T) extends Bundle {
   val empty = Output(Bool())
 }
 
-abstract class FIFO[T <: Data](gen: T, depth: Int) extends Module {
-  val io = IO(new FIFOIO(gen))
+abstract class FIFO[T <: Data](gen: T, depth: Int, useAsyncReset: Boolean = false)
+  extends FixedIORawModule(new FIFOIO(gen, useAsyncReset)) 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
 
   assert(depth > 0, "Number of buffer elements needs to be larger than 0")
 }
 
-class SyncFIFO[T <: Data](gen: T, depth: Int) extends FIFO(gen, depth) {
+@instantiable
+class SyncFIFO[T <: Data](gen: T, depth: Int, useAsyncReset: Boolean) extends FIFO(gen, depth, useAsyncReset) {
 
   val memReg = Reg(Vec(depth, gen)) // the register based memory
 

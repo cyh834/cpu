@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util.BitPat
 import chisel3.util.experimental.decode._
 import org.chipsalliance.rvdecoderdb.Instruction
+import org.chipsalliance.rvdecoderdb.Utils._
 
 import cpu._
 import utility._
@@ -12,206 +13,173 @@ object DecoderParam {
   implicit def rwP: upickle.default.ReadWriter[DecoderParam] = upickle.default.macroRW
 }
 
-case class DecoderParam(allInstructions: Seq[Instruction])
+case class DecoderParam(instructions: Seq[Instruction])
 
-trait CPUDecodeFiled[D <: Data] extends DecodeField[CPUDecodePattern, D] with FieldName
+trait CPUDecodeFiled[D <: Data] extends DecodeField[CPUDecodePattern, D]
 
 trait BoolField extends CPUDecodeFiled[Bool] with BoolDecodeField[CPUDecodePattern]
 
-trait FuTypeUopField extends CPUDecodeFiled[UInt] with FieldName {
+trait FuTypeUopField extends CPUDecodeFiled[UInt]{
   def chiselType: UInt = UInt(4.W)
 }
 
-trait FuOpTypeUopField extends CPUDecodeFiled[UInt] with FieldName {
+trait FuOpTypeUopField extends CPUDecodeFiled[UInt]{
   def chiselType: UInt = UInt(7.W)
 }
-trait ImmUopField extends CPUDecodeFiled[UInt] with FieldName {
-  def chiselType: UInt = UInt(32.W)
+trait ImmUopField extends CPUDecodeFiled[UInt]{
+  def chiselType: UInt = UInt(3.W)
 }
 
 object Decoder {
   implicit def uintToBitPat(x: UInt): BitPat = BitPat(x)
 
   object ReadRs1 extends BoolField {
-    override def genTable(pattern: CPUDecodePattern): BitPat = if (pattern.ReadRs1) y else n
+    override def name: String = "ReadRs1"
+    override def genTable(pattern: CPUDecodePattern): BitPat = if (readRs1(pattern.instruction)) y else n
   }
 
   object ReadRs2 extends BoolField {
-    override def genTable(pattern: CPUDecodePattern): BitPat = if (pattern.ReadRs2) y else n
+    override def name: String = "ReadRs2"
+    override def genTable(pattern: CPUDecodePattern): BitPat = if (readRs2(pattern.instruction)) y else n
   }
 
   object WriteRd extends BoolField {
-    override def genTable(pattern: CPUDecodePattern): BitPat = if (pattern.WriteRd) y else n
+    override def name: String = "WriteRd"
+    override def genTable(pattern: CPUDecodePattern): BitPat = if (writeRd(pattern.instruction)) y else n
   }
 
   object Fu extends FuTypeUopField {
-    override def genTable(pattern: CPUDecodePattern): BitPat =
-      if (pattern.isALU) FuType.alu
-      else if (pattern.isBRU) FuType.bru
-      else if (pattern.isCSR) FuType.csr
-      else if (pattern.isDIV) FuType.div
-      else if (pattern.isFENCE) FuType.fence
-      else if (pattern.isJMP) FuType.jmp
-      else if (pattern.isLDU) FuType.ldu
-      else if (pattern.isMOU) FuType.mou
-      else if (pattern.isMUL) FuType.mul
-      else if (pattern.isSTU) FuType.stu
-      else BitPat.dontCare(4)
-  }
-
-//TODO: Too long
-  object FuOp extends FuOpTypeUopField {
-    override def genTable(pattern: CPUDecodePattern): BitPat = pattern.FUOpType match {
-      case aluCase: AluUOP =>
-        aluCase match {
-          case _: Uoplui.type  => ALUOpType.add
-          case _: Uopaddi.type => ALUOpType.add
-          case _: Uopandi.type => ALUOpType.and
-          case _: Uopori.type  => ALUOpType.or
-          case _: Uopxori.type => ALUOpType.xor
-          case _: Uopslti.type => ALUOpType.slt
-          case _: Uopsltiu.type => ALUOpType.sltu
-          case _: Uopsll.type => ALUOpType.sll
-          case _: Uopadd.type => ALUOpType.add
-          case _: Uopsub.type => ALUOpType.sub
-          case _: Uopslt.type => ALUOpType.slt
-          case _: Uopsltu.type => ALUOpType.sltu
-          case _: Uopand.type => ALUOpType.and
-          case _: Uopor.type => ALUOpType.or
-          case _: Uopxor.type => ALUOpType.xor
-          case _: Uopsra.type => ALUOpType.sra
-          case _: Uopsrl.type => ALUOpType.srl
-          case _: Uopslli.type => ALUOpType.sll
-          case _: Uopsrli.type => ALUOpType.srl
-          case _: Uopsrai.type => ALUOpType.sra
-          case _: Uopaddiw.type => ALUOpType.addw
-          case _: Uopslliw.type => ALUOpType.sllw
-          case _: Uopsraiw.type => ALUOpType.sraw
-          case _: Uopsrliw.type => ALUOpType.srlw
-          case _: Uopaddw.type => ALUOpType.addw
-          case _: Uopsubw.type => ALUOpType.subw
-          case _: Uopsllw.type => ALUOpType.sllw
-          case _: Uopsraw.type => ALUOpType.sraw
-          case _: Uopsrlw.type => ALUOpType.srlw
-          case _ => BitPat.dontCare(7)
-        }
-      case bruCase: BruUOP =>
-        bruCase match {
-          case _: Uopbeq.type => BRUOpType.beq
-          case _: Uopbne.type => BRUOpType.bne
-          case _: Uopblt.type => BRUOpType.blt
-          case _: Uopbge.type => BRUOpType.bge
-          case _: Uopbltu.type => BRUOpType.bltu
-          case _: Uopbgeu.type => BRUOpType.bgeu
-          case _ => BitPat.dontCare(7)
-        }
-      case csrCase: CsrUOP =>
-        csrCase match {
-          case _: Uopcsrrw.type => CSROpType.csrrw
-          case _: Uopcsrrs.type => CSROpType.csrrs
-          case _: Uopcsrrc.type => CSROpType.csrrc
-          case _: Uopcsrrwi.type => CSROpType.csrrwi
-          case _: Uopcsrrsi.type => CSROpType.csrrsi
-          case _: Uopcsrrci.type => CSROpType.csrrci
-          case _: Uopecall.type => CSROpType.jmp
-          case _: Uopebreak.type => CSROpType.jmp
-          case _: Uopmret.type => CSROpType.jmp
-          case _: Uopsret.type => CSROpType.jmp
-          case _: Uopwfi.type => CSROpType.wfi
-          case _ => BitPat.dontCare(7)
-        }
-      case fenceCase: FenceUOP =>
-        fenceCase match {
-          case _: Uopfence.type => FenceOpType.fence
-          case _: Uopfencei.type => FenceOpType.fencei
-          case _: Uopsfencevma.type => FenceOpType.sfence
-          case _ => BitPat.dontCare(7)
-        }
-      case jmpCase: JmpUOP =>
-        jmpCase match {
-          case _: Uopjal.type => JumpOpType.jal
-          case _: Uopjalr.type => JumpOpType.jalr
-          case _: Uopauipc.type => JumpOpType.auipc
-          case _ => BitPat.dontCare(7)
-        }
-      case lduCase: LsuUOP =>
-        lduCase match {
-          case _: Uoplb.type => LSUOpType.lb
-          case _: Uoplh.type => LSUOpType.lh
-          case _: Uoplw.type => LSUOpType.lw
-          case _: Uopld.type => LSUOpType.ld
-          case _: Uoplbu.type => LSUOpType.lbu
-          case _: Uoplhu.type => LSUOpType.lhu
-          case _: Uoplwu.type => LSUOpType.lwu
-          case _ => BitPat.dontCare(7)
-        }
-      case stuCase: StuUOP =>
-        stuCase match {
-          case _: Uopsb.type => LSUOpType.sb
-          case _: Uopsh.type => LSUOpType.sh
-          case _: Uopsw.type => LSUOpType.sw
-          case _: Uopsd.type => LSUOpType.sd
-          case _ => BitPat.dontCare(7)
-        }
-      case mouCase: MouUOP =>
-        mouCase match {
-          case _: Uoplrw.type => LSUOpType.lr_w
-          case _: Uopscw.type => LSUOpType.sc_w
-          case _: Uopamoswapw.type => LSUOpType.amoswap_w
-          case _: Uopamoaddw.type => LSUOpType.amoadd_w
-          case _: Uopamoxorw.type => LSUOpType.amoxor_w
-          case _: Uopamoandw.type => LSUOpType.amoand_w 
-          case _: Uopamoorw.type => LSUOpType.amoor_w
-          case _: Uopamominw.type => LSUOpType.amomin_w
-          case _: Uopamomaxw.type => LSUOpType.amomax_w
-          case _: Uopamominuw.type => LSUOpType.amominu_w
-          case _: Uopamomaxuw.type => LSUOpType.amomaxu_w
-          case _: Uoplrd.type => LSUOpType.lr_d
-          case _: Uopscd.type => LSUOpType.sc_d
-          case _: Uopamoswapd.type => LSUOpType.amoswap_d
-          case _: Uopamoaddd.type => LSUOpType.amoadd_d
-          case _: Uopamoxord.type => LSUOpType.amoxor_d
-          case _: Uopamoandd.type => LSUOpType.amoand_d
-          case _: Uopamoord.type => LSUOpType.amoor_d
-          case _: Uopamomind.type => LSUOpType.amomin_d
-          case _: Uopamomaxd.type => LSUOpType.amomax_d
-          case _: Uopamominud.type => LSUOpType.amominu_d
-          case _: Uopamomaxud.type => LSUOpType.amomaxu_d
-          case _ => BitPat.dontCare(7)
-        }
-      case mulCase: MulUOP =>
-        mulCase match {
-          case _: Uopmul.type => MDUOpType.mul
-          case _: Uopmulh.type => MDUOpType.mulh
-          case _: Uopmulhsu.type => MDUOpType.mulhsu
-          case _: Uopmulhu.type => MDUOpType.mulhu
-          case _: Uopmulw.type => MDUOpType.mulw
-          case _ => BitPat.dontCare(7)
-        }
-      case divCase: DivUOP =>
-        divCase match {
-          case _: Uopdiv.type => DIVOpType.div
-          case _: Uopdivu.type => DIVOpType.divu
-          case _: Uoprem.type => DIVOpType.rem
-          case _: Uopremu.type => DIVOpType.remu
-          case _: Uopdivw.type => DIVOpType.divw
-          case _: Uopdivuw.type => DIVOpType.divuw
-          case _: Uopremw.type => DIVOpType.remw
-          case _: Uopremuw.type => DIVOpType.remuw
-          case _ => BitPat.dontCare(7)
-        }
-      case _ => BitPat.dontCare(7)
+    override def name: String = "Fu"
+    override def genTable(pattern: CPUDecodePattern): BitPat = pattern.instruction.name match {
+        case i if Seq("lui","addi","andi","ori","xori","slti","sltiu","sll","add","sub","slt","sltu","and","or","xor","sra","srl","slli","srli","srai","addiw","slliw","sraiw","srliw","addw","subw","sllw","sraw","srlw").contains(i) => FuType.alu
+        case i if Seq("beq","bne","blt","bge","bltu","bgeu").contains(i) => FuType.brh
+        case i if Seq("csrrw","csrrs","csrrc","csrrwi","csrrsi","csrrci","ecall","ebreak","mret","sret","wfi").contains(i) => FuType.csr
+        case i if Seq("fence","fencei","sfence.vma").contains(i) => FuType.fence
+        case i if Seq("jal","jalr","auipc").contains(i) => FuType.jmp
+        case i if Seq("lb","lh","lw","ld","lbu","lhu","lwu").contains(i) => FuType.ldu
+        case i if Seq("sb","sh","sw","sd").contains(i) => FuType.stu
+        case i if Seq("lr.w","sc.w","amoswap.w","amoadd.w","amoxor.w","amoand.w","amoor.w","amomin.w","amomax.w","amominu.w","amomaxu.w","lr.d","sc.d","amoswap.d","amoadd.d","amoxor.d","amoand.d","amoor.d","amomin.d","amomax.d","amominu.d","amomaxu.d").contains(i) => FuType.mou
+        case i if Seq("mul","mulh","mulhsu","mulhu","mulw").contains(i) => FuType.mul
+        case i if Seq("div","divu","rem","remu","divw","divuw","remw","remuw").contains(i) => FuType.div
+        case _ => FuType.dontCare
     }
   }
 
-  object Imm extends ImmUopField {
-    val XLEN = 64 //TODO 
-    override def genTable(pattern: CPUDecodePattern): BitPat =
-      if (pattern.isI) SignExt(instr(31, 20), XLEN)
-      else if (pattern.isS) SignExt(Cat(instr(31, 25), instr(11, 7)), XLEN)
-      else if (pattern.isB) SignExt(Cat(instr(31), instr(7), instr(30, 25), instr(11, 8), 0.U(1.W)), XLEN)
-      else if (pattern.isU) SignExt(Cat(instr(31, 12), 0.U(12.W)), XLEN)
-      else if (pattern.isJ) SignExt(Cat(instr(31), instr(19, 12), instr(20), instr(30, 21), 0.U(1.W)), XLEN)
-      else BitPat.dontCare(32)
+  object FuOp extends FuOpTypeUopField {
+    override def name: String = "FuOp"
+    override def genTable(pattern: CPUDecodePattern): BitPat = 
+      pattern.instruction.name match {
+        case i if Seq("lui","addi","add").contains(i) => ALUOpType.add
+        case i if Seq("andi","and").contains(i) => ALUOpType.and
+        case i if Seq("ori","or").contains(i) => ALUOpType.or
+        case i if Seq("xori","xor").contains(i) => ALUOpType.xor
+        case i if Seq("slti","slt").contains(i) => ALUOpType.slt
+        case i if Seq("sltiu","sltu").contains(i) => ALUOpType.sltu
+        case i if Seq("sll","slli").contains(i) => ALUOpType.sll
+        case i if Seq("sub","subw").contains(i) => ALUOpType.sub
+        case i if Seq("sra","srai").contains(i) => ALUOpType.sra
+        case i if Seq("srl","srli").contains(i) => ALUOpType.srl
+        case i if Seq("addiw","addw").contains(i) => ALUOpType.addw
+        case i if Seq("slliw","sllw").contains(i) => ALUOpType.sllw
+        case i if Seq("sraiw","sraw").contains(i) => ALUOpType.sraw
+        case i if Seq("srliw","srlw").contains(i) => ALUOpType.srlw
+
+        case i if Seq("beq").contains(i) => BRUOpType.beq
+        case i if Seq("bne").contains(i) => BRUOpType.bne
+        case i if Seq("blt").contains(i) => BRUOpType.blt
+        case i if Seq("bge").contains(i) => BRUOpType.bge
+        case i if Seq("bltu").contains(i) => BRUOpType.bltu
+        case i if Seq("bgeu").contains(i) => BRUOpType.bgeu
+
+        case i if Seq("csrrw").contains(i) => CSROpType.csrrw
+        case i if Seq("csrrs").contains(i) => CSROpType.csrrs
+        case i if Seq("csrrc").contains(i) => CSROpType.csrrc
+        case i if Seq("csrrwi").contains(i) => CSROpType.csrrwi
+        case i if Seq("csrrsi").contains(i) => CSROpType.csrrsi
+        case i if Seq("csrrci").contains(i) => CSROpType.csrrci
+        case i if Seq("ecall", "ebreak", "mret", "sret", "wfi").contains(i) => CSROpType.jmp
+
+        case i if Seq("fence").contains(i) => FenceOpType.fence
+        case i if Seq("fencei").contains(i) => FenceOpType.fencei
+        case i if Seq("sfence.vma").contains(i) => FenceOpType.sfence
+
+        case i if Seq("jal").contains(i) => JumpOpType.jal
+        case i if Seq("jalr").contains(i) => JumpOpType.jalr
+        case i if Seq("auipc").contains(i) => JumpOpType.auipc
+
+        case i if Seq("lb").contains(i) => LSUOpType.lb
+        case i if Seq("lh").contains(i) => LSUOpType.lh
+        case i if Seq("lw").contains(i) => LSUOpType.lw
+        case i if Seq("ld").contains(i) => LSUOpType.ld
+        case i if Seq("lbu").contains(i) => LSUOpType.lbu
+        case i if Seq("lhu").contains(i) => LSUOpType.lhu
+        case i if Seq("lwu").contains(i) => LSUOpType.lwu
+
+        case i if Seq("sb").contains(i) => LSUOpType.sb
+        case i if Seq("sh").contains(i) => LSUOpType.sh
+        case i if Seq("sw").contains(i) => LSUOpType.sw
+        case i if Seq("sd").contains(i) => LSUOpType.sd
+      
+        case i if Seq("lr.w").contains(i) => LSUOpType.lr_w
+        case i if Seq("sc.w").contains(i) => LSUOpType.sc_w
+        case i if Seq("amoswap.w").contains(i) => LSUOpType.amoswap_w
+        case i if Seq("amoadd.w").contains(i) => LSUOpType.amoadd_w
+        case i if Seq("amoxor.w").contains(i) => LSUOpType.amoxor_w
+        case i if Seq("amoand.w").contains(i) => LSUOpType.amoand_w
+        case i if Seq("amoor.w").contains(i) => LSUOpType.amoor_w
+        case i if Seq("amomin.w").contains(i) => LSUOpType.amomin_w
+        case i if Seq("amomax.w").contains(i) => LSUOpType.amomax_w
+        case i if Seq("amominu.w").contains(i) => LSUOpType.amominu_w
+        case i if Seq("amomaxu.w").contains(i) => LSUOpType.amomaxu_w
+        case i if Seq("lr.d").contains(i) => LSUOpType.lr_d
+        case i if Seq("sc.d").contains(i) => LSUOpType.sc_d
+        case i if Seq("amoswap.d").contains(i) => LSUOpType.amoswap_d
+        case i if Seq("amoadd.d").contains(i) => LSUOpType.amoadd_d
+        case i if Seq("amoxor.d").contains(i) => LSUOpType.amoxor_d
+        case i if Seq("amoand.d").contains(i) => LSUOpType.amoand_d
+        case i if Seq("amoor.d").contains(i) => LSUOpType.amoor_d
+        case i if Seq("amomin.d").contains(i) => LSUOpType.amomin_d
+        case i if Seq("amomax.d").contains(i) => LSUOpType.amomax_d
+        case i if Seq("amominu.d").contains(i) => LSUOpType.amominu_d
+        case i if Seq("amomaxu.d").contains(i) => LSUOpType.amomaxu_d
+
+        case i if Seq("mul").contains(i) => MDUOpType.mul
+        case i if Seq("mulh").contains(i) => MDUOpType.mulh
+        case i if Seq("mulhsu").contains(i) => MDUOpType.mulhsu
+        case i if Seq("mulhu").contains(i) => MDUOpType.mulhu
+        case i if Seq("mulw").contains(i) => MDUOpType.mulw
+
+        case i if Seq("div").contains(i) => MDUOpType.div
+        case i if Seq("divu").contains(i) => MDUOpType.divu
+        case i if Seq("rem").contains(i) => MDUOpType.rem
+        case i if Seq("remu").contains(i) => MDUOpType.remu
+        case i if Seq("divw").contains(i) => MDUOpType.divw
+        case i if Seq("divuw").contains(i) => MDUOpType.divuw
+        case i if Seq("remw").contains(i) => MDUOpType.remw
+        case i if Seq("remuw").contains(i) => MDUOpType.remuw
+
+        case _ => FuOpType.dontCare
+      }
   }
+
+  object ImmType extends ImmUopField {
+    override def name: String = "ImmType"
+    override def genTable(pattern: CPUDecodePattern): BitPat = {
+      val instruction = pattern.instruction
+      if (isI(instruction)) InstrType.I
+      else if (isS(instruction)) InstrType.S
+      else if (isB(instruction)) InstrType.B
+      else if (isU(instruction)) InstrType.U
+      else if (isJ(instruction)) InstrType.J
+      else InstrType.dontCare
+    }
+  }
+
+  def allFields(param: DecoderParam): Seq[CPUDecodeFiled[_ >: Bool <: UInt]] = 
+    Seq( ReadRs1, ReadRs2, WriteRd, Fu, FuOp, ImmType)
+  def allDecodePattern(param: DecoderParam): Seq[CPUDecodePattern] =
+    param.instructions.map(CPUDecodePattern(_, param)).toSeq.sortBy(_.instruction.name)
+  def decodeTable(param: DecoderParam): DecodeTable[CPUDecodePattern] =
+    new DecodeTable[CPUDecodePattern](allDecodePattern(param), allFields(param))
+  def decode(param: DecoderParam): UInt => DecodeBundle = decodeTable(param).decode
 }

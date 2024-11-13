@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 
 object AXI4BundleParameter {
-  implicit def rw: upickle.default.ReadWriter[AXI4BundleParameter] =
+  implicit def rwP: upickle.default.ReadWriter[AXI4BundleParameter] =
     upickle.default.macroRW[AXI4BundleParameter]
 }
 
@@ -24,8 +24,8 @@ case class AXI4BundleParameter(
   val rUserWidth:  Int = 0
 }
 
-object irrevocable {
-  def apply(parameter: AXI4BundleParameter): AXI4ChiselBundle = {
+object AXI4 {
+  def apply(parameter: AXI4BundleParameter) = {
     if (parameter.isRW) new AXI4RWIrrevocable(parameter)
     else new AXI4ROIrrevocable(parameter)
   }

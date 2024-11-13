@@ -8,25 +8,32 @@ import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantia
 import cpu._
 import fifo._
 
-object IBUParameter {
-  implicit def rw: upickle.default.ReadWriter[IBUParameter] =
+object IBUFParameter {
+  implicit def rwP: upickle.default.ReadWriter[IBUFParameter] =
     upickle.default.macroRW
 }
 
-case class IBUParameter(VAddrBits: Int) extends SerializableModuleParameter {
+case class IBUFParameter(useAsyncReset: Boolean, vaddrBits: Int) extends SerializableModuleParameter {
   val IBUFDepth = 8
 }
 
-class IBUFInterface(parameter: IBUParameter) extends Bundle {
-  val in = Flipped(Decoupled(new IFU2IBUF(parameter.VAddrBits)))
-  val out = Decoupled(new IBUF2IDU(parameter.VAddrBits))
+class IBUFInterface(parameter: IBUFParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val in = Flipped(Decoupled(new IFU2IBUF(parameter.vaddrBits)))
+  val out = Decoupled(new IBUF2IDU(parameter.vaddrBits))
 }
 
-class IBUF(parameter: IBUParameter)
+@instantiable
+class IBUF(val parameter: IBUFParameter)
     extends FixedIORawModule(new IBUFInterface(parameter))
-    with SerializableModule[IBUParameter] {
+    with SerializableModule[IBUFParameter] 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
 
-  val buf: Instance[SyncFIFO[IFU2IBUF]] = Instantiate(new SyncFIFO(new IFU2IBUF, parameter.IBUFDepth))
+  val buf: Instance[SyncFIFO[IFU2IBUF]] = Instantiate(new SyncFIFO(new IFU2IBUF(parameter.vaddrBits), parameter.IBUFDepth, parameter.useAsyncReset))
   io.in.ready := !buf.io.full
   io.out.valid := !buf.io.empty
   io.out.bits := buf.io.data_out

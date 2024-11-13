@@ -20,14 +20,20 @@ class InstrUncacheIO extends Bundle {
   val resp = Flipped(DecoupledIO(new InsUncacheResp))
 }
 
-class InstrUncacheInterface(parameter: CPUParameter) extends Bundle {
+class InstrUncacheInterface(useAsyncReset: Boolean, parameter: AXI4BundleParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (useAsyncReset) AsyncReset() else Bool())
   val ifu = Flipped(new InstrUncacheIO)
-  val mem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
+  val mem = AXI4(parameter)
   val flush = Input(Bool())
 }
 
-class InstrUncache(parameter: CPUParameter) 
-  extends FixedIORawModule(new InstrUncacheInterface(parameter)){
+class InstrUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter) 
+  extends FixedIORawModule(new InstrUncacheInterface(useAsyncReset, parameter))
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
   val needFlush = RegInit(false.B)
   when(io.flush) {
     needFlush := true.B
@@ -57,21 +63,23 @@ class InstrUncache(parameter: CPUParameter)
 
   io.ifu.resp.bits.data := io.mem.r.bits.data
 
-  io.mem.aw.valid := false.B
-  io.mem.aw.bits.addr := 0.U
-  io.mem.aw.bits.id := 0.U
-  io.mem.aw.bits.len := 0.U
-  io.mem.aw.bits.size := 0.U
-  io.mem.aw.bits.burst := 0.U
-  io.mem.aw.bits.lock := 0.U
-  io.mem.aw.bits.cache := 0.U
-  io.mem.aw.bits.prot := 0.U
-  io.mem.aw.bits.qos := 0.U
-  io.mem.aw.bits.user := 0.U
-  io.mem.w.valid := false.B
-  io.mem.w.bits.data := 0.U
-  io.mem.w.bits.strb := 0.U
-  io.mem.w.bits.last := false.B
-  io.mem.w.bits.user := 0.U
-  io.mem.b.ready := false.B
+  if(parameter.isRW){
+    //io.mem.aw.valid := false.B
+    //io.mem.aw.bits.addr := 0.U
+    //io.mem.aw.bits.id := 0.U
+    //io.mem.aw.bits.len := 0.U
+    //io.mem.aw.bits.size := 0.U
+    //io.mem.aw.bits.burst := 0.U
+    //io.mem.aw.bits.lock := 0.U
+    //io.mem.aw.bits.cache := 0.U
+    //io.mem.aw.bits.prot := 0.U
+    //io.mem.aw.bits.qos := 0.U
+    //io.mem.aw.bits.user := 0.U
+    //io.mem.w.valid := false.B
+    //io.mem.w.bits.data := 0.U
+    //io.mem.w.bits.strb := 0.U
+    //io.mem.w.bits.last := false.B
+    //io.mem.w.bits.user := 0.U
+    //io.mem.b.ready := false.B
+  }
 }

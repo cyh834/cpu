@@ -16,8 +16,11 @@ class BackendProbe(parameter: CPUParameter) extends Bundle {
 }
 
 class BackendInterface(parameter: CPUParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new DecodeIO(parameter.iduParameter)))
   val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
+  val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
   val flush = Input(UInt(2.W))
   val probe = Output(Probe(new BackendProbe(parameter), layers.Verification))
 }
@@ -25,7 +28,11 @@ class BackendInterface(parameter: CPUParameter) extends Bundle {
 @instantiable
 class Backend(val parameter: CPUParameter)
     extends FixedIORawModule(new BackendInterface(parameter))
-    with SerializableModule[CPUParameter] {
+    with SerializableModule[CPUParameter] 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
 
   val isu = Instantiate(new ISU(parameter))
   val exu = Instantiate(new EXU(parameter))
@@ -39,6 +46,8 @@ class Backend(val parameter: CPUParameter)
 
   isu.io.flush := io.flush(0)
   exu.io.flush := io.flush(1)
+
+  exu.io.bpuUpdate <> io.bpuUpdate
 
   val regfile = Instantiate(new RegFile(parameter.regfileParameter))
   regfile.io.readPorts <> isu.io.rfread

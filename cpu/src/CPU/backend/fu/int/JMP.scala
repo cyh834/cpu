@@ -5,6 +5,7 @@ import chisel3.util._
 import chisel3.stage._
 import cpu._
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 import utility._
 
 class JMPInterface(parameter: CPUParameter) extends Bundle {
@@ -17,7 +18,8 @@ class JMPInterface(parameter: CPUParameter) extends Bundle {
   // val isAuipc = Output(Bool())
 }
 
-class JMP(parameter: CPUParameter)
+@instantiable
+class JMP(val parameter: CPUParameter)
     extends FixedIORawModule(new JMPInterface(parameter))
     with SerializableModule[CPUParameter] {
 

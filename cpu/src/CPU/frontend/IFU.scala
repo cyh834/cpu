@@ -10,18 +10,25 @@ import utility._
 import cpu._
 
 class IFUInterface(parameter: CPUParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val imem = new IMEM
-  val out = Decoupled(new IFU2IBUF)
+  val out = Decoupled(new IFU2IBUF(parameter.VAddrBits))
+  val bpuUpdate = Input(Flipped(new BPUUpdate(parameter.bpuParameter)))
 }
 
 @instantiable
 class IFU(val parameter: CPUParameter)
-    extends FixedIORawModule(new FrontendInterface(parameter))
+    extends FixedIORawModule(new IFUInterface(parameter))
     with SerializableModule[CPUParameter]
-    with PreDecode {
+    with PreDecode 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
   val pc = RegInit(parameter.ResetVector.U(parameter.VAddrBits.W))
   val npc = Wire(UInt(parameter.VAddrBits.W))
-  val bpu: Instance[BPU] = Instantiate(new BPU(parameter))
+  val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
 
   when(io.imem.req.fire) { pc := npc }
 
@@ -55,19 +62,11 @@ class IFU(val parameter: CPUParameter)
   //                                 Mux(isCall(inst), Brtype.call, Brtype.X))
   // bpu.io.ras_update.bits.isRVC  := isrvc
   // bpu.io.ras_update.valid := (isRet(inst) || isCall(inst)) && io.out.fire
-  val rasupdate = WireInit(0.U.asTypeOf(Valid(new RASUpdate)))
-  BoringUtils.addSource(rasupdate, "rasupdate")
-  val btbupdate = WireInit(0.U.asTypeOf(Valid(new BTBUpdate)))
-  BoringUtils.addSource(btbupdate, "btbupdate")
-  val phtupdate = WireInit(0.U.asTypeOf(Valid(new PHTUpdate)))
-  BoringUtils.addSource(phtupdate, "phtupdate")
-  bpu.io.ras_update := rasupdate
-  bpu.io.pht_update := phtupdate
-  bpu.io.btb_update := btbupdate
+  bpu.io.update := io.bpuUpdate
 }
 
 //TODO: 支持32位
-trait PreDecode extends HasCoreParameter {
+trait PreDecode {
   def isRVC(inst: UInt): Bool = (inst(1, 0) =/= 3.U)
 
   // def C_JAL     = BitPat("b????????????????_?01_?_??_???_??_???_01") // RV32C

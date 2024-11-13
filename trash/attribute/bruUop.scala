@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isBru {
-  def apply(cpuDecodePattern: CPUDecodePattern): isBru = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "beq",
       "bne",
@@ -35,3 +35,5 @@ object BruUOP {
     }
   }
 }
+
+case class BruUOP(value: BruUOPType) extends UopDecodeAttribute[BruUOPType]

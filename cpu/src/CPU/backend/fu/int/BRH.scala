@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.stage._
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 import cpu._
 import utility._
 
@@ -18,7 +19,9 @@ class BRHInterface(parameter: CPUParameter) extends Bundle {
   val offset = Input(UInt(XLEN.W))
   val target = Output(UInt(XLEN.W))
 }
-class BRH(parameter: CPUParameter)
+
+@instantiable
+class BRH(val parameter: CPUParameter)
     extends FixedIORawModule(new BRHInterface(parameter))
     with SerializableModule[CPUParameter] {
 

@@ -4,5 +4,6 @@
         "rv_m",
         "rv_a",
         "rv_c"
-    ]
+    ],
+    "useAsyncReset": false
 }

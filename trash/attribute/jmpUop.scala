@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isJmp {
-  def apply(cpuDecodePattern: CPUDecodePattern): isJmp = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "jal",
       "jalr",
@@ -26,3 +26,5 @@ object JmpUOP {
     }
   }
 }
+
+case class JmpUOP(value: JmpUOPType) extends UopDecodeAttribute[JmpUOPType]

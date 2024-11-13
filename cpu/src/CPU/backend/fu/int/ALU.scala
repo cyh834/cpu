@@ -4,18 +4,26 @@ import chisel3._
 import chisel3.util._
 import chisel3.stage._
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 import cpu._
 import utility._
 
 class ALUInterface(parameter: CPUParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val src = Vec(2, Input(UInt(parameter.XLEN.W)))
   val func = Input(FuOpType())
   val result = Output(UInt(parameter.XLEN.W))
 }
 
-class ALU(parameter: CPUParameter)
+@instantiable
+class ALU(val parameter: CPUParameter)
     extends FixedIORawModule(new ALUInterface(parameter))
-    with SerializableModule[CPUParameter] {
+    with SerializableModule[CPUParameter] 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
 
   val (src1, src2, func) = (io.src(0), io.src(1), io.func)
   val XLEN = parameter.XLEN

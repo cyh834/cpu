@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isLdu {
-  def apply(cpuDecodePattern: CPUDecodePattern): isLdu = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "lw",
       "lh",
@@ -39,3 +39,5 @@ object LduUOP {
     }
   }
 }
+
+case class LduUOP(value: LduUOPType) extends UopDecodeAttribute[LduUOPType]

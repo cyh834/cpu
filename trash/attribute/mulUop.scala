@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isMul {
-  def apply(cpuDecodePattern: CPUDecodePattern): isMul = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "mul",
       "mulh",
@@ -32,3 +32,5 @@ object MulUOP {
     }
   }
 }
+
+case class MulUOP(value: MulUOPType) extends UopDecodeAttribute[MulUOPType]

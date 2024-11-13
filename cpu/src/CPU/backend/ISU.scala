@@ -4,12 +4,15 @@ import chisel3._
 import chisel3.util._
 import chisel3.probe.{define, Probe, ProbeValue}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 
 import utility._
 import cpu._
 import cpu.frontend._
 
 class IsuInterface(parameter: CPUParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new DecodeIO(parameter.iduParameter)))
   val out = Decoupled(new DecodeIO(parameter.iduParameter))
   val flush = Input(Bool())
@@ -18,10 +21,15 @@ class IsuInterface(parameter: CPUParameter) extends Bundle {
   val forward = Flipped(new ForwardIO(parameter.LogicRegsWidth, parameter.XLEN))
 }
 
+@instantiable
 class ISU(val parameter: CPUParameter)
     extends FixedIORawModule(new IsuInterface(parameter))
-    with SerializableModule[CPUParameter] {
-  io.out <> io.in
+    with SerializableModule[CPUParameter] 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
+  io.out :<>= io.in
 
   val busy = io.scoreboard.isBusy.reduce(_ | _)
   val canforward = Wire(Vec(parameter.NumSrc, Bool()))
@@ -46,5 +54,5 @@ class ISU(val parameter: CPUParameter)
   io.out.valid := io.in.valid && (!busy | canforward.reduce(_ | _))
   io.in.ready := io.out.ready
 
-  io.scoreboard.setidx := Mux(io.in.bits.rfWen, io.in.bits.ldest, 0.U)
+  io.scoreboard.setidx(0) := Mux(io.in.bits.rfWen, io.in.bits.ldest, 0.U)
 }

@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isFence {
-  def apply(cpuDecodePattern: CPUDecodePattern): isFence = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "fence",
       "fence.i",
@@ -25,3 +25,5 @@ object FenceUOP {
     }
   }
 }
+
+case class FenceUOP(value: FenceUOPType) extends UopDecodeAttribute[FenceUOPType]

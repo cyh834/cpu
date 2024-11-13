@@ -1,5 +1,6 @@
 {
     "testVerbatimParameter": {
+        "useAsyncReset": false,
         "initFunctionName": "cpu_init",
         "finalFunctionName": "cpu_final",
         "dumpFunctionName": "dump_wave",

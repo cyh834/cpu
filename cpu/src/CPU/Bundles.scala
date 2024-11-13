@@ -31,11 +31,11 @@ object Brtype {
 }
 
 class BPUReq(parameter: BPUParameter) extends Bundle {
-  val pc = UInt(parameter.VAddrBits.W)
+  val pc = UInt(parameter.vaddrBits.W)
 }
 
 class PredictIO(parameter: BPUParameter) extends Bundle {
-  val target = Output(UInt(parameter.VAddrBits.W))
+  val target = Output(UInt(parameter.vaddrBits.W))
   val pred_taken = Output(Bool())
 }
 
@@ -47,14 +47,14 @@ class RASUpdate(parameter: BPUParameter) extends Bundle {
 
 //EXU
 class PHTUpdate(parameter: BPUParameter) extends Bundle {
-  val pc = UInt(parameter.VAddrBits.W)
+  val pc = UInt(parameter.vaddrBits.W)
   val taken = Bool()
 }
 
 //EXU?
 class BTBUpdate(parameter: BPUParameter) extends Bundle {
-  val pc = UInt(parameter.VAddrBits.W)
-  val target = UInt(parameter.VAddrBits.W)
+  val pc = UInt(parameter.vaddrBits.W)
+  val target = UInt(parameter.vaddrBits.W)
   // val taken = Bool()
   // val isValid = Bool()
   val brtype = Brtype()

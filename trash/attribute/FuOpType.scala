@@ -1,8 +1,8 @@
 package cpu.frontend.decoder
 
 object FUOpType {
-  def apply(cpuDecodePattern: CPUDecodePattern): FUOptype = {
-    val tpe: Option[FUOptype] = Seq(
+  def apply(cpuDecodePattern: CPUDecodePattern): FUOpType = {
+    val tpe: Option[FUOpType] = Seq(
         isAlu(cpuDecodePattern) ->   AluUOP    (cpuDecodePattern)
         isBru(cpuDecodePattern) ->   BruUOP    (cpuDecodePattern)
         isLdu(cpuDecodePattern) ->   LsuUOP    (cpuDecodePattern)
@@ -14,13 +14,11 @@ object FUOpType {
         isFence(cpuDecodePattern)->  FenceUOP  (cpuDecodePattern)
         isCsr(cpuDecodePattern) ->   CsrUOP    (cpuDecodePattern)
     ).collectFirst {
-      case (fn, tpe) if fn => FUOptype(tpe)
+      case (fn, tpe) if fn => FUOpType(tpe)
     }
     require(tpe.size <= 1)
-    tpe.getOrElse(FUOptype(UopDC))
+    tpe.getOrElse(FUOpType(UopDC))
   }
 }
 
-case class FUOptype(value: Uop) extends UopDecodeAttribute[Uop] {
-  override val description: String = "uop for mask unit."
-}
+case class FUOpType(value: Uop) extends UopDecodeAttribute[Uop]

@@ -3,6 +3,7 @@ package cpu.frontend
 import chisel3._
 import chisel3.util._
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
+import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 
 import utility._
 import cpu._
@@ -12,7 +13,7 @@ object BPUParameter {
     upickle.default.macroRW
 }
 
-case class BPUParameter(xlen: Int, VAddrBits: Int) extends SerializableModuleParameter {
+case class BPUParameter(useAsyncReset: Boolean, xlen: Int, vaddrBits: Int) extends SerializableModuleParameter {
   val NRbtb = 512
   val NRras = 16
   // 多路?
@@ -23,16 +24,16 @@ case class BPUParameter(xlen: Int, VAddrBits: Int) extends SerializableModulePar
   val wayBits = log2Up(waynum)
   val offsetBits = if (xlen == 32) 2 else 3
   // partial-tag?
-  val tagBits = VAddrBits - idxBits - offsetBits
+  val tagBits = vaddrBits - idxBits - offsetBits
 }
 
 class BTBAddr(parameter: BPUParameter) extends Bundle {
-  val tag = UInt(tagBits.W)
-  val idx = UInt(idxBits.W)
-  val way = UInt(wayBits.W)
-  val offset = UInt(offsetBits.W)
+  val tag = UInt(parameter.tagBits.W)
+  val idx = UInt(parameter.idxBits.W)
+  val way = UInt(parameter.wayBits.W)
+  val offset = UInt(parameter.offsetBits.W)
 
-  def fromUInt(x: UInt) = x.asTypeOf(UInt(VAddrBits.W)).asTypeOf(this)
+  def fromUInt(x: UInt) = x.asTypeOf(UInt(parameter.vaddrBits.W)).asTypeOf(this)
   def getTag(x:   UInt) = fromUInt(x).tag
   def getIdx(x:   UInt) = fromUInt(x).idx
   def getway(x:   UInt) = fromUInt(x).way
@@ -40,13 +41,16 @@ class BTBAddr(parameter: BPUParameter) extends Bundle {
 
 class BTBData(parameter: BPUParameter) extends Bundle {
   val valid = Bool()
-  val BIA = UInt(tagBits.W)
-  val BTA = UInt(VAddrBits.W)
+  val BIA = UInt(parameter.tagBits.W)
+  val BTA = UInt(parameter.vaddrBits.W)
   val brtype = Brtype()
 }
 
 //todo:加计数器统计相同地址
-class RAS(nras: Int, vaddr: UInt) {
+class RAS(parameter: BPUParameter) {
+  val nras = parameter.NRras
+  val vaddr = UInt(parameter.vaddrBits.W)
+
   private val ras = Reg(Vec(nras, vaddr))
   private val sp = RegInit(0.U(log2Up(nras).W))
 
@@ -69,8 +73,8 @@ class RAS(nras: Int, vaddr: UInt) {
 
 //todo:竞争的分支预测+hash
 //两位饱和计数器
-class PHT(set: Int) {
-  private val pht = Mem(set, UInt(2.W))
+class PHT(parameter: BPUParameter) {
+  private val pht = Mem(parameter.set, UInt(2.W))
 
   def value(addr: BTBAddr): UInt = pht.read(addr.idx)
   def taken(addr: BTBAddr): Bool = value(addr)(1)
@@ -84,12 +88,12 @@ class PHT(set: Int) {
   }
 }
 
-class BTB(set: Int) {
-  private val datatype = UInt((new BTBData).getWidth.W)
-  private val btb = SyncReadMem(set, datatype)
+class BTB(parameter: BPUParameter){
+  private val datatype = UInt((new BTBData(parameter)).getWidth.W)
+  private val btb = SyncReadMem(parameter.set, datatype)
 
   def read(addr: BTBAddr): BTBData = {
-    btb.read(addr.idx).asTypeOf(new BTBData)
+    btb.read(addr.idx).asTypeOf(new BTBData(parameter))
   }
 
   def hit(addr: BTBAddr): Bool = {
@@ -103,49 +107,60 @@ class BTB(set: Int) {
 
 }
 
-class BPUInterface(parameter: BPUParameter) extends Bundle {
-  val in = Flipped(Valid(new BPUReq(parameter)))
-  val flush = Input(Bool())
-  val out = Valid(new PredictIO(parameter))
-  val btb_update = Flipped(Valid(new BTBUpdate(parameter)))
-  val pht_update = Flipped(Valid(new PHTUpdate(parameter)))
-  val ras_update = Flipped(Valid(new RASUpdate(parameter)))
+class BPUUpdate(parameter: BPUParameter) extends Bundle {
+  val btb = Valid(new BTBUpdate(parameter))
+  val pht = Valid(new PHTUpdate(parameter))
+  val ras = Valid(new RASUpdate(parameter))
 }
 
+class BPUInterface(parameter: BPUParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val flush = Input(Bool())
+  val in = Flipped(Valid(new BPUReq(parameter)))
+  val out = Valid(new PredictIO(parameter))
+  val update = Input(Flipped(new BPUUpdate(parameter)))
+}
+
+@instantiable
 class BPU(val parameter: BPUParameter)
     extends FixedIORawModule(new BPUInterface(parameter))
-    with SerializableModule[BPUParameter] {
+    with SerializableModule[BPUParameter] 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
   val pc = io.in.bits.pc
   implicit def fromUInt(pc: UInt): BTBAddr = (new BTBAddr(parameter)).fromUInt(pc)
 
   // BTB
-  val btb = new BTB(set)
+  val btb = new BTB(parameter)
   val btbRead = btb.read(pc)
   val btbData = Wire(new BTBData(parameter))
   btbData.valid := true.B
-  btbData.BIA := io.btb_update.bits.pc.tag
-  btbData.BTA := io.btb_update.bits.target
-  btbData.brtype := io.btb_update.bits.brtype
+  btbData.BIA := io.update.btb.bits.pc.tag
+  btbData.BTA := io.update.btb.bits.target
+  btbData.brtype := io.update.btb.bits.brtype
 
-  when(io.btb_update.valid) {
-    btb.update(io.btb_update.bits.pc, btbData)
+  when(io.update.btb.valid) {
+    btb.update(io.update.btb.bits.pc, btbData)
   }
 
   // PHT
-  val pht = new PHT(set)
+  val pht = new PHT(parameter)
   val pred_taken = pht.taken(pc)
-  when(io.pht_update.valid) {
-    pht.update(pc, io.pht_update.bits.taken)
+  when(io.update.pht.valid) {
+    pht.update(pc, io.update.pht.bits.taken)
   }
 
   // RAS
-  val ras = new RAS(NRras, UInt(VAddrBits.W))
+  val ras = new RAS(parameter)
   val rasTarget = ras.value
-  when(io.ras_update.valid) {
-    when(io.ras_update.bits.brtype === Brtype.call) {
-      ras.push(Mux(io.ras_update.bits.isRVC, pc + 2.U, pc + 4.U))
+  when(io.update.ras.valid) {
+    when(io.update.ras.bits.brtype === Brtype.call) {
+      ras.push(Mux(io.update.ras.bits.isRVC, pc + 2.U, pc + 4.U))
     }
-      .elsewhen(io.ras_update.bits.brtype === Brtype.ret) {
+      .elsewhen(io.update.ras.bits.brtype === Brtype.ret) {
         ras.pop()
       }
   }

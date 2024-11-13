@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isMou {
-  def apply(cpuDecodePattern: CPUDecodePattern): isMou = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "lr.w",
       "sc.w",
@@ -86,3 +86,5 @@ object MouUOP {
     }
   }
 }
+
+case class MouUOP(value: MouUOPType) extends UopDecodeAttribute[MouUOPType]

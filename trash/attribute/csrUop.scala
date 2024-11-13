@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isCsr {
-  def apply(cpuDecodePattern: CPUDecodePattern): isCsr = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "csrrw",
       "csrrs",
@@ -50,3 +50,5 @@ object CsrUOP{
     }
   }
 }
+
+case class CsrUOP(value: CsrUOPType) extends UopDecodeAttribute[CsrUOPType]

@@ -21,7 +21,7 @@ object CPUParameter {
 }
 
 /** Parameter of [[CPU]] */
-case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParameter {
+case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends SerializableModuleParameter {
   val instructions: Seq[Instruction] = {
     org.chipsalliance.rvdecoderdb
       .instructions(org.chipsalliance.rvdecoderdb.extractResource(getClass.getClassLoader))
@@ -45,7 +45,6 @@ case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParam
   private def hasInstructionSet(setName: String): Boolean =
     instructions.flatMap(_.instructionSets.map(_.name)).contains(setName)
 
-  val decoderParam: DecoderParam = DecoderParam(instructions)
 
   def XLEN: Int =
     (hasInstructionSet("rv32_i"), hasInstructionSet("rv64_i")) match {
@@ -58,20 +57,7 @@ case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParam
   def usingAtomics = hasInstructionSet("rv_a") || hasInstructionSet("rv64_a")
   def usingCompressed = hasInstructionSet("rv_c")
 
-  /** parameter for AXI4. */
-  val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
-    addrWidth = XLEN,
-    dataWidth = 64,
-    idWidth = 1,
-    isRO = true
-  )
 
-  val loadStoreAXIParameter: AXI4BundleParameter = AXI4BundleParameter(
-    addrWidth = XLEN,
-    dataWidth = 64,
-    idWidth = 1,
-    isRO = false
-  )
 
   val ResetVector: Long = 0x80000000L
 
@@ -93,23 +79,51 @@ case class CPUParameter(extensions: Seq[String]) extends SerializableModuleParam
   val LogicRegsWidth: Int = log2Up(NrPhyRegs)
   val NumSrc:         Int = 2
 
+  val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
+    addrWidth = XLEN,
+    dataWidth = 64,
+    idWidth = 1,
+    isRO = true
+  )
+
+  val loadStoreAXIParameter: AXI4BundleParameter = AXI4BundleParameter(
+    addrWidth = XLEN,
+    dataWidth = 64,
+    idWidth = 1,
+    isRO = false
+  )
   val regfileParameter: RegFileParameter = RegFileParameter(
     addrWidth = LogicRegsWidth,
     dataWidth = DataBits,
-    nrReg = NrPhyRegs
+    nrReg = NrPhyRegs,
+    useAsyncReset = useAsyncReset
   )
 
   val scoreboardParameter: ScoreBoardParameter = ScoreBoardParameter(
     addrWidth = LogicRegsWidth,
     dataWidth = DataBits,
-    numSrc = NumSrc
+    numSrc = NumSrc,
+    useAsyncReset = useAsyncReset
   )
 
   val iduParameter: IDUParameter = IDUParameter(
     addrBits = VAddrBits,
     numSrc = NumSrc,
     regsWidth = LogicRegsWidth,
-    xlen = XLEN
+    xlen = XLEN,
+    decoderParam = DecoderParam(instructions),
+    useAsyncReset = useAsyncReset
+  )
+
+  val ibufParameter: IBUFParameter = IBUFParameter(
+    vaddrBits = VAddrBits,
+    useAsyncReset = useAsyncReset
+  )
+
+  val bpuParameter: BPUParameter = BPUParameter(
+    xlen = XLEN,
+    vaddrBits = VAddrBits,
+    useAsyncReset = useAsyncReset
   )
 }
 
@@ -150,14 +164,16 @@ class CPUProbe(parameter: CPUParameter) extends Bundle {
 /** Metadata of [[CPU]]. */
 @instantiable
 class CPUOM(parameter: CPUParameter) extends Class {
+  val useAsyncReset: Property[Boolean] = IO(Output(Property[Boolean]()))
   val extensions: Property[Seq[String]] = IO(Output(Property[Seq[String]]()))
+  useAsyncReset := Property(parameter.useAsyncReset)
   extensions := Property(parameter.extensions)
 }
 
 /** Interface of [[CPU]]. */
 class CPUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset = Input(Bool())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val imem = new AXI4ROIrrevocable(parameter.instructionFetchParameter)
   val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
   val intr = Input(UInt(parameter.NrExtIntr.W))
@@ -178,6 +194,7 @@ class CPU(val parameter: CPUParameter)
   val frontend: Instance[Frontend] = Instantiate(new Frontend(parameter))
   val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
   PipelineConnect(frontend.io.out, backend.io.in, false.B, false.B)
+  frontend.io.bpuUpdate <> backend.io.bpuUpdate
 
   // Assign Probe
   val probeWire: CPUProbe = Wire(new CPUProbe(parameter))

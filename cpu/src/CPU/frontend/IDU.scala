@@ -11,13 +11,14 @@ import org.chipsalliance.rvdecoderdb.Instruction
 
 import cpu._
 import utility._
+import cpu.frontend.decoder._
 
 object IDUParameter {
   implicit def rwP: upickle.default.ReadWriter[IDUParameter] =
     upickle.default.macroRW
 }
 
-case class IDUParameter(addrBits: Int, numSrc: Int, regsWidth: Int, xlen: Int ) extends SerializableModuleParameter
+case class IDUParameter(decoderParam: DecoderParam,useAsyncReset: Boolean,  addrBits: Int, numSrc: Int, regsWidth: Int, xlen: Int ) extends SerializableModuleParameter
 
 trait IDUBundle extends Bundle {
   val parameter: IDUParameter
@@ -27,11 +28,11 @@ trait IDUBundle extends Bundle {
   val xlen = parameter.xlen
 }
 
-class IDUProbe(parameter: IDUParameter) extends IDUBundle {
+class IDUProbe(val parameter: IDUParameter) extends IDUBundle {
   val instr = UInt(32.W)
 }
 
-class DecodeIO(parameter: IDUParameter) extends IDUBundle {
+class DecodeIO(val parameter: IDUParameter) extends IDUBundle {
   val srcIsReg = Vec(numSrc, Bool())
   val fuType = FuType()
   val fuOpType = FuOpType()
@@ -47,57 +48,70 @@ class DecodeIO(parameter: IDUParameter) extends IDUBundle {
   val pred_taken = Bool()
   val brtype = Bool()
 
-  val probe = Output(Probe(new IDUProbe(parameter), layers.Verification))
+  val probe = Probe(new IDUProbe(parameter), layers.Verification)
 }
 
-class IDUInterface(parameter: IDUParameter) extends IDUBundle {
+class IDUInterface(val parameter: IDUParameter) extends IDUBundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new IBUF2IDU(addrBits)))
   val out = Decoupled(new DecodeIO(parameter))
 }
 
 @instantiable
-class IDU(parameter: IDUParameter)
+class IDU(val parameter: IDUParameter)
     extends FixedIORawModule(new IDUInterface(parameter))
     with SerializableModule[IDUParameter]
-    with BtbDecode {
+    with BtbDecode 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
 
-  val decodeResult = Decoder.decode(param)(io.in.bits.inst)
+  val decodeResult = Decoder.decode(parameter.decoderParam)(io.in.bits.inst)
+  val instr = io.in.bits.inst
 
-  io.out.bits.srcIsReg(0) := decodeResult(ReadRs1)
-  io.out.bits.srcIsReg(1) := decodeResult(ReadRs2)
-  io.out.bits.fuType := decodeResult(Fu)
-  io.out.bits.fuOpType := decodeResult(FuOp)
+  io.out.bits.srcIsReg(0) := decodeResult(Decoder.ReadRs1)
+  io.out.bits.srcIsReg(1) := decodeResult(Decoder.ReadRs2)
+  io.out.bits.fuType := decodeResult(Decoder.Fu)
+  io.out.bits.fuOpType := decodeResult(Decoder.FuOp)
   io.out.bits.lsrc(0) := io.in.bits.inst(19, 15)
   io.out.bits.lsrc(1) := io.in.bits.inst(24, 20)
   io.out.bits.ldest := io.in.bits.inst(11, 7)
-  io.out.bits.rfWen := decodeResult(WriteRd)
+  io.out.bits.rfWen := decodeResult(Decoder.WriteRd)
 
+  val imm = MuxLookup(decodeResult(Decoder.ImmType), 0.U)(Seq(
+    InstrType.I -> SignExt(io.in.bits.inst(31, 20), parameter.xlen),
+    InstrType.S -> SignExt(Cat(io.in.bits.inst(31, 25), io.in.bits.inst(11, 7)), parameter.xlen),
+    InstrType.B -> SignExt(Cat(io.in.bits.inst(31), io.in.bits.inst(7), io.in.bits.inst(30, 25), io.in.bits.inst(11, 8), 0.U(1.W)), parameter.xlen),
+    InstrType.U -> SignExt(Cat(io.in.bits.inst(31, 12), 0.U(12.W)), parameter.xlen),
+    InstrType.J -> SignExt(Cat(io.in.bits.inst(31), io.in.bits.inst(19, 12), io.in.bits.inst(20), io.in.bits.inst(30, 21), 0.U(1.W)), parameter.xlen)
+  ))
   // src 可能会在isu中被修改
-  io.out.src(0) := io.in.bits.pc
-  io.out.src(1) := decodeResult(Imm)
-  io.out.imm := decodeResult(Imm)
+  io.out.bits.src(0) := io.in.bits.pc
+  io.out.bits.src(1) := imm
+  io.out.bits.imm := imm
 
-  io.out.pred_taken := io.in.bits.pred_taken
-  io.out.pc := io.in.bits.pc
-  io.out.isRVC := isRVC(instr)
+  io.out.bits.pred_taken := io.in.bits.pred_taken
+  io.out.bits.pc := io.in.bits.pc
+  io.out.bits.isRVC := isRVC(instr)
 
-  val instr = io.in.bits.inst
-  io.out.brtype := Mux(
+  io.out.bits.brtype := Mux(
     isRet(instr),
     Brtype.ret,
-    Mux(isCall(instr), Brtype.call, Mux(decode.isbru(decodeResult(Fu)), Brtype.branch, Brtype.jump))
+    Mux(isCall(instr), Brtype.call, Mux(FuType.isbrh(decodeResult(Decoder.Fu)), Brtype.branch, Brtype.jump))
   )
 
   io.in.ready := io.out.ready
   io.out.valid := io.in.valid
 
   val probeWire: IDUProbe = Wire(new IDUProbe(parameter))
-  define(io.out.probe, ProbeValue(probeWire))
+  define(io.out.bits.probe, ProbeValue(probeWire))
   probeWire.instr := instr
 }
 
 //TODO: 移到IFU作为pre-decode?
-trait BtbDecode extends HascpuParameter {
+trait BtbDecode {
   def isRVC(inst: UInt): Bool = (inst(1, 0) =/= 3.U)
 
   // def C_JAL     = BitPat("b????????????????_?01_?_??_???_??_???_01") // RV32C

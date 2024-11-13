@@ -27,16 +27,24 @@ class WriteBackIO(parameter: CPUParameter) extends Bundle {
 }
 
 class EXUInterface(parameter: CPUParameter) extends Bundle {
+  val clock = Input(Clock())
+  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new DecodeIO(parameter.iduParameter)))
   val out = Decoupled(new WriteBackIO(parameter))
   val flush = Input(Bool())
   val forward = new ForwardIO(parameter.LogicRegsWidth, parameter.XLEN)
   val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
+  val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
 }
 
+@instantiable
 class EXU(val parameter: CPUParameter)
     extends FixedIORawModule(new EXUInterface(parameter))
-    with SerializableModule[CPUParameter] {
+    with SerializableModule[CPUParameter] 
+    with ImplicitClock
+    with ImplicitReset {
+    override protected def implicitClock: Clock = io.clock
+    override protected def implicitReset: Reset = io.reset
 
   val (fuType, fuOpType, brtype): (UInt, UInt, UInt) = (io.in.bits.fuType, io.in.bits.fuOpType, io.in.bits.brtype)
 
@@ -96,25 +104,18 @@ class EXU(val parameter: CPUParameter)
   io.forward.valid := io.out.valid & io.in.bits.rfWen
 
   // update bpu
-  val rasupdate = WireInit(0.U.asTypeOf(Valid(new RASUpdate(parameter.BPUParameter))))
-  BoringUtils.addSink(rasupdate, "rasupdate")
-  val btbupdate = WireInit(0.U.asTypeOf(Valid(new BTBUpdate(parameter.BPUParameter))))
-  BoringUtils.addSink(btbupdate, "btbupdate")
-  val phtupdate = WireInit(0.U.asTypeOf(Valid(new PHTUpdate(parameter.BPUParameter))))
-  BoringUtils.addSink(phtupdate, "phtupdate")
+  io.bpuUpdate.pht.bits.pc := io.in.bits.pc
+  io.bpuUpdate.pht.bits.taken := brh.taken
+  io.bpuUpdate.pht.valid := isBrh & io.out.fire
 
-  phtupdate.bits.pc := io.in.bits.pc
-  phtupdate.bits.taken := brh.taken
-  phtupdate.valid := isBrh & io.out.fire
+  io.bpuUpdate.btb.bits.pc := io.in.bits.pc
+  io.bpuUpdate.btb.bits.target := target
+  io.bpuUpdate.btb.bits.brtype := brtype
+  io.bpuUpdate.btb.valid := isJmp || isBrh
 
-  btbupdate.bits.pc := io.in.bits.pc
-  btbupdate.bits.target := target
-  btbupdate.bits.brtype := brtype
-  btbupdate.valid := isJmp || isBrh
-
-  rasupdate.bits.brtype := brtype
-  rasupdate.bits.isRVC := io.in.bits.isRVC
-  rasupdate.valid := Brtype.isRas(brtype)
+  io.bpuUpdate.ras.bits.brtype := brtype
+  io.bpuUpdate.ras.bits.isRVC := io.in.bits.isRVC
+  io.bpuUpdate.ras.valid := Brtype.isRas(brtype)
 
   // probe
   val probeWire: ExuProbe = Wire(new ExuProbe(parameter))

@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isDiv {
-  def apply(cpuDecodePattern: CPUDecodePattern): isDiv = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "div",
       "divu",
@@ -42,3 +42,5 @@ object DivUOP {
     }
   }
 }
+
+case class DivUOP(value: DivUOPType) extends UopDecodeAttribute[DivUOPType]

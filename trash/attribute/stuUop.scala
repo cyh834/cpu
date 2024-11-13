@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isStu {
-  def apply(cpuDecodePattern: CPUDecodePattern): isStu = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "sw",
       "sh",
@@ -29,3 +29,5 @@ object StuUOP {
     }
   }
 }
+
+case class StuUOP(value: StuUOPType) extends UopDecodeAttribute[StuUOPType]

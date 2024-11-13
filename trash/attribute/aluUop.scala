@@ -1,7 +1,7 @@
 package cpu.frontend.decoder
 
 object isAlu {
-  def apply(cpuDecodePattern: CPUDecodePattern): isAlu = {
+  def apply(cpuDecodePattern: CPUDecodePattern): Boolean = {
     val allMatched = Seq(
       "lui",
       "addi",
@@ -107,3 +107,5 @@ object AluUOP {
     }
   }
 }
+
+case class AluUOP(value: AluUOPType) extends UopDecodeAttribute[AluUOPType]
