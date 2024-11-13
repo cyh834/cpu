@@ -32,19 +32,16 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
             Seq("rv_i", "rv_zicsr", "rv_zifencei", "rv_system")
         ).contains(instruction.instructionSet.name)
       }
-  }
-  .toSeq
-  .filter {
+  }.toSeq.filter {
     // special case for rv32 pseudo from rv64
     case i if i.pseudoFrom.isDefined && Seq("slli", "srli", "srai").contains(i.name) => true
     case i if i.pseudoFrom.isDefined                                                 => false
     case _                                                                           => true
   }
-  .sortBy(_.instructionSet.name)
+    .sortBy(_.instructionSet.name)
 
   private def hasInstructionSet(setName: String): Boolean =
     instructions.flatMap(_.instructionSets.map(_.name)).contains(setName)
-
 
   def XLEN: Int =
     (hasInstructionSet("rv32_i"), hasInstructionSet("rv64_i")) match {
@@ -56,8 +53,6 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
 
   def usingAtomics = hasInstructionSet("rv_a") || hasInstructionSet("rv64_a")
   def usingCompressed = hasInstructionSet("rv_c")
-
-
 
   val ResetVector: Long = 0x80000000L
 
@@ -165,7 +160,7 @@ class CPUProbe(parameter: CPUParameter) extends Bundle {
 @instantiable
 class CPUOM(parameter: CPUParameter) extends Class {
   val useAsyncReset: Property[Boolean] = IO(Output(Property[Boolean]()))
-  val extensions: Property[Seq[String]] = IO(Output(Property[Seq[String]]()))
+  val extensions:    Property[Seq[String]] = IO(Output(Property[Seq[String]]()))
   useAsyncReset := Property(parameter.useAsyncReset)
   extensions := Property(parameter.extensions)
 }
@@ -173,7 +168,7 @@ class CPUOM(parameter: CPUParameter) extends Class {
 /** Interface of [[CPU]]. */
 class CPUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val imem = new AXI4ROIrrevocable(parameter.instructionFetchParameter)
   val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
   val intr = Input(UInt(parameter.NrExtIntr.W))

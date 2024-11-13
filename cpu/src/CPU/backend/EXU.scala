@@ -28,7 +28,7 @@ class WriteBackIO(parameter: CPUParameter) extends Bundle {
 
 class EXUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new DecodeIO(parameter.iduParameter)))
   val out = Decoupled(new WriteBackIO(parameter))
   val flush = Input(Bool())
@@ -40,11 +40,11 @@ class EXUInterface(parameter: CPUParameter) extends Bundle {
 @instantiable
 class EXU(val parameter: CPUParameter)
     extends FixedIORawModule(new EXUInterface(parameter))
-    with SerializableModule[CPUParameter] 
+    with SerializableModule[CPUParameter]
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
   val (fuType, fuOpType, brtype): (UInt, UInt, UInt) = (io.in.bits.fuType, io.in.bits.fuOpType, io.in.bits.brtype)
 

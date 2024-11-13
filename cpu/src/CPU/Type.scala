@@ -223,7 +223,7 @@ object InstrType {
   def INVALID_INSTR = "b0110".U(width.W)
 
   def dontCare = BitPat.dontCare(width)
-  //def X      = BitPat("b000")
+  // def X      = BitPat("b000")
   def apply() = UInt(width.W)
 
 }

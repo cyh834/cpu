@@ -3,16 +3,16 @@ package amba.axi4
 import chisel3._
 import chisel3.util._
 
-trait AXI4ChiselBundle extends Bundle{
+trait AXI4ChiselBundle extends Bundle {
   val parameter: AXI4BundleParameter
-  val idWidth: Int = parameter.idWidth
-  val addrWidth: Int = parameter.addrWidth
-  val dataWidth: Int = parameter.dataWidth
+  val idWidth:     Int = parameter.idWidth
+  val addrWidth:   Int = parameter.addrWidth
+  val dataWidth:   Int = parameter.dataWidth
   val awUserWidth: Int = parameter.awUserWidth
-  val wUserWidth: Int = parameter.wUserWidth
-  val bUserWidth: Int = parameter.bUserWidth
+  val wUserWidth:  Int = parameter.wUserWidth
+  val bUserWidth:  Int = parameter.bUserWidth
   val arUserWidth: Int = parameter.arUserWidth
-  val rUserWidth: Int = parameter.rUserWidth
+  val rUserWidth:  Int = parameter.rUserWidth
 }
 
 class AW(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle {
@@ -100,10 +100,7 @@ object AXI4RWIrrevocable {
   // ] = rwC2V
 }
 
-class AXI4ROIrrevocable(val parameter: AXI4BundleParameter) 
-  extends AXI4ChiselBundle 
-  with HasAR 
-  with HasR
+class AXI4ROIrrevocable(val parameter: AXI4BundleParameter) extends AXI4ChiselBundle with HasAR with HasR
 
 object AXI4ROIrrevocable {
   def apply(parameter: AXI4BundleParameter) = new AXI4ROIrrevocable(parameter)

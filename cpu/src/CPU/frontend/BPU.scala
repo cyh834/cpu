@@ -88,7 +88,7 @@ class PHT(parameter: BPUParameter) {
   }
 }
 
-class BTB(parameter: BPUParameter){
+class BTB(parameter: BPUParameter) {
   private val datatype = UInt((new BTBData(parameter)).getWidth.W)
   private val btb = SyncReadMem(parameter.set, datatype)
 
@@ -115,7 +115,7 @@ class BPUUpdate(parameter: BPUParameter) extends Bundle {
 
 class BPUInterface(parameter: BPUParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val flush = Input(Bool())
   val in = Flipped(Valid(new BPUReq(parameter)))
   val out = Valid(new PredictIO(parameter))
@@ -125,11 +125,11 @@ class BPUInterface(parameter: BPUParameter) extends Bundle {
 @instantiable
 class BPU(val parameter: BPUParameter)
     extends FixedIORawModule(new BPUInterface(parameter))
-    with SerializableModule[BPUParameter] 
+    with SerializableModule[BPUParameter]
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
   val pc = io.in.bits.pc
   implicit def fromUInt(pc: UInt): BTBAddr = (new BTBAddr(parameter)).fromUInt(pc)
 

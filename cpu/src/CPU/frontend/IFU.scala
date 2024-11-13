@@ -11,7 +11,7 @@ import cpu._
 
 class IFUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val imem = new IMEM
   val out = Decoupled(new IFU2IBUF(parameter.VAddrBits))
   val bpuUpdate = Input(Flipped(new BPUUpdate(parameter.bpuParameter)))
@@ -21,11 +21,11 @@ class IFUInterface(parameter: CPUParameter) extends Bundle {
 class IFU(val parameter: CPUParameter)
     extends FixedIORawModule(new IFUInterface(parameter))
     with SerializableModule[CPUParameter]
-    with PreDecode 
+    with PreDecode
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
   val pc = RegInit(parameter.ResetVector.U(parameter.VAddrBits.W))
   val npc = Wire(UInt(parameter.VAddrBits.W))
   val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))

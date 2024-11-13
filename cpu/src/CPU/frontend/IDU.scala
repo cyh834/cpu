@@ -18,7 +18,14 @@ object IDUParameter {
     upickle.default.macroRW
 }
 
-case class IDUParameter(decoderParam: DecoderParam,useAsyncReset: Boolean,  addrBits: Int, numSrc: Int, regsWidth: Int, xlen: Int ) extends SerializableModuleParameter
+case class IDUParameter(
+  decoderParam:  DecoderParam,
+  useAsyncReset: Boolean,
+  addrBits:      Int,
+  numSrc:        Int,
+  regsWidth:     Int,
+  xlen:          Int)
+    extends SerializableModuleParameter
 
 trait IDUBundle extends Bundle {
   val parameter: IDUParameter
@@ -53,7 +60,7 @@ class DecodeIO(val parameter: IDUParameter) extends IDUBundle {
 
 class IDUInterface(val parameter: IDUParameter) extends IDUBundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new IBUF2IDU(addrBits)))
   val out = Decoupled(new DecodeIO(parameter))
 }
@@ -62,11 +69,11 @@ class IDUInterface(val parameter: IDUParameter) extends IDUBundle {
 class IDU(val parameter: IDUParameter)
     extends FixedIORawModule(new IDUInterface(parameter))
     with SerializableModule[IDUParameter]
-    with BtbDecode 
+    with BtbDecode
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
   val decodeResult = Decoder.decode(parameter.decoderParam)(io.in.bits.inst)
   val instr = io.in.bits.inst
@@ -80,13 +87,21 @@ class IDU(val parameter: IDUParameter)
   io.out.bits.ldest := io.in.bits.inst(11, 7)
   io.out.bits.rfWen := decodeResult(Decoder.WriteRd)
 
-  val imm = MuxLookup(decodeResult(Decoder.ImmType), 0.U)(Seq(
-    InstrType.I -> SignExt(io.in.bits.inst(31, 20), parameter.xlen),
-    InstrType.S -> SignExt(Cat(io.in.bits.inst(31, 25), io.in.bits.inst(11, 7)), parameter.xlen),
-    InstrType.B -> SignExt(Cat(io.in.bits.inst(31), io.in.bits.inst(7), io.in.bits.inst(30, 25), io.in.bits.inst(11, 8), 0.U(1.W)), parameter.xlen),
-    InstrType.U -> SignExt(Cat(io.in.bits.inst(31, 12), 0.U(12.W)), parameter.xlen),
-    InstrType.J -> SignExt(Cat(io.in.bits.inst(31), io.in.bits.inst(19, 12), io.in.bits.inst(20), io.in.bits.inst(30, 21), 0.U(1.W)), parameter.xlen)
-  ))
+  val imm = MuxLookup(decodeResult(Decoder.ImmType), 0.U)(
+    Seq(
+      InstrType.I -> SignExt(io.in.bits.inst(31, 20), parameter.xlen),
+      InstrType.S -> SignExt(Cat(io.in.bits.inst(31, 25), io.in.bits.inst(11, 7)), parameter.xlen),
+      InstrType.B -> SignExt(
+        Cat(io.in.bits.inst(31), io.in.bits.inst(7), io.in.bits.inst(30, 25), io.in.bits.inst(11, 8), 0.U(1.W)),
+        parameter.xlen
+      ),
+      InstrType.U -> SignExt(Cat(io.in.bits.inst(31, 12), 0.U(12.W)), parameter.xlen),
+      InstrType.J -> SignExt(
+        Cat(io.in.bits.inst(31), io.in.bits.inst(19, 12), io.in.bits.inst(20), io.in.bits.inst(30, 21), 0.U(1.W)),
+        parameter.xlen
+      )
+    )
+  )
   // src 可能会在isu中被修改
   io.out.bits.src(0) := io.in.bits.pc
   io.out.bits.src(1) := imm

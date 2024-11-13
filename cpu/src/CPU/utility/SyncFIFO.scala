@@ -7,7 +7,7 @@ import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
 class FIFOIO[T <: Data](private val gen: T, val useAsyncReset: Boolean) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (useAsyncReset) AsyncReset() else Bool())
   val wr_en = Input(Bool())
   val rd_en = Input(Bool())
   val data_in = Input(gen)
@@ -17,11 +17,11 @@ class FIFOIO[T <: Data](private val gen: T, val useAsyncReset: Boolean) extends 
 }
 
 abstract class FIFO[T <: Data](gen: T, depth: Int, useAsyncReset: Boolean = false)
-  extends FixedIORawModule(new FIFOIO(gen, useAsyncReset)) 
+    extends FixedIORawModule(new FIFOIO(gen, useAsyncReset))
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
   assert(depth > 0, "Number of buffer elements needs to be larger than 0")
 }

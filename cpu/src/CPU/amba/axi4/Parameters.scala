@@ -31,10 +31,10 @@ object AXI4 {
   }
 }
 
-object AXI4Parameters{
-   object burst {
-     val FIXED = 0.U(2.W)
-     val INCR = 1.U(2.W)
-     val WRAP = 2.U(2.W)
-   }
+object AXI4Parameters {
+  object burst {
+    val FIXED = 0.U(2.W)
+    val INCR = 1.U(2.W)
+    val WRAP = 2.U(2.W)
+  }
 }

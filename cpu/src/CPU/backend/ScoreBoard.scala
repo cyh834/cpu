@@ -14,7 +14,8 @@ object ScoreBoardParameter {
     upickle.default.macroRW
 }
 
-case class ScoreBoardParameter(useAsyncReset: Boolean, addrWidth: Int, dataWidth: Int, numSrc: Int) extends SerializableModuleParameter {
+case class ScoreBoardParameter(useAsyncReset: Boolean, addrWidth: Int, dataWidth: Int, numSrc: Int)
+    extends SerializableModuleParameter {
   val numReadPorts = 2
   val numWritePorts = 1
 
@@ -34,7 +35,7 @@ class SB_WB(parameter: ScoreBoardParameter) extends Bundle {
 
 class ScoreBoardInterface(parameter: ScoreBoardParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val isu = new SB_ISU(parameter)
   val wb = new SB_WB(parameter)
 }
@@ -42,11 +43,11 @@ class ScoreBoardInterface(parameter: ScoreBoardParameter) extends Bundle {
 @instantiable
 class ScoreBoard(val parameter: ScoreBoardParameter)
     extends FixedIORawModule(new ScoreBoardInterface(parameter))
-    with SerializableModule[ScoreBoardParameter] 
+    with SerializableModule[ScoreBoardParameter]
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
   val busy = RegInit(0.U(parameter.addrWidth.W))
   def mask(idx: UInt) = (1.U(parameter.addrWidth.W) << idx)(parameter.addrWidth - 1, 0)

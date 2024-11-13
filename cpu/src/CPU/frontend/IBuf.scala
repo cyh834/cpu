@@ -19,7 +19,7 @@ case class IBUFParameter(useAsyncReset: Boolean, vaddrBits: Int) extends Seriali
 
 class IBUFInterface(parameter: IBUFParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new IFU2IBUF(parameter.vaddrBits)))
   val out = Decoupled(new IBUF2IDU(parameter.vaddrBits))
 }
@@ -27,13 +27,15 @@ class IBUFInterface(parameter: IBUFParameter) extends Bundle {
 @instantiable
 class IBUF(val parameter: IBUFParameter)
     extends FixedIORawModule(new IBUFInterface(parameter))
-    with SerializableModule[IBUFParameter] 
+    with SerializableModule[IBUFParameter]
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
-  val buf: Instance[SyncFIFO[IFU2IBUF]] = Instantiate(new SyncFIFO(new IFU2IBUF(parameter.vaddrBits), parameter.IBUFDepth, parameter.useAsyncReset))
+  val buf: Instance[SyncFIFO[IFU2IBUF]] = Instantiate(
+    new SyncFIFO(new IFU2IBUF(parameter.vaddrBits), parameter.IBUFDepth, parameter.useAsyncReset)
+  )
   io.in.ready := !buf.io.full
   io.out.valid := !buf.io.empty
   io.out.bits := buf.io.data_out

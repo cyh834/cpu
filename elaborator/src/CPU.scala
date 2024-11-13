@@ -16,8 +16,8 @@ object CPUMain extends SerializableModuleElaborator {
   @main
   case class CPUParameterMain(
     @arg(name = "useAsyncReset") useAsyncReset: Boolean,
-    @arg(name = "extensions") extensions: Seq[String]) {
-    def convert: CPUParameter = CPUParameter(useAsyncReset,extensions)
+    @arg(name = "extensions") extensions:       Seq[String]) {
+    def convert: CPUParameter = CPUParameter(useAsyncReset, extensions)
   }
 
   implicit def CPUParameterMainParser: ParserForClass[CPUParameterMain] =

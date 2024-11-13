@@ -12,7 +12,7 @@ import cpu.cache.InstrUncache
 
 class FrontendInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val imem = AXI4(parameter.instructionFetchParameter)
   val out = Decoupled(new DecodeIO(parameter.iduParameter))
   val bpuUpdate = Input(Flipped(new BPUUpdate(parameter.bpuParameter)))
@@ -21,11 +21,11 @@ class FrontendInterface(parameter: CPUParameter) extends Bundle {
 @instantiable
 class Frontend(val parameter: CPUParameter)
     extends FixedIORawModule(new FrontendInterface(parameter))
-    with SerializableModule[CPUParameter] 
+    with SerializableModule[CPUParameter]
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
   val ifu:  Instance[IFU] = Instantiate(new IFU(parameter))
   val ibuf: Instance[IBUF] = Instantiate(new IBUF(parameter.ibufParameter))
@@ -38,7 +38,9 @@ class Frontend(val parameter: CPUParameter)
 
   ifu.io.bpuUpdate := io.bpuUpdate
 
-  val uncache: Instance[InstrUncache] = Instantiate(new InstrUncache(parameter.useAsyncReset, parameter.instructionFetchParameter))
+  val uncache: Instance[InstrUncache] = Instantiate(
+    new InstrUncache(parameter.useAsyncReset, parameter.instructionFetchParameter)
+  )
   uncache.io.flush := false.B
   uncache.io.ifu <> ifu.io.imem
   io.imem <> uncache.io.mem

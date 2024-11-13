@@ -14,7 +14,8 @@ object RegFileParameter {
     upickle.default.macroRW
 }
 
-case class RegFileParameter(useAsyncReset: Boolean, addrWidth: Int, dataWidth: Int, nrReg: Int) extends SerializableModuleParameter {
+case class RegFileParameter(useAsyncReset: Boolean, addrWidth: Int, dataWidth: Int, nrReg: Int)
+    extends SerializableModuleParameter {
   val numReadPorts = 2
   val numWritePorts = 1
 }
@@ -32,7 +33,7 @@ class RfWritePort(parameter: RegFileParameter) extends Bundle {
 
 class RegFileInterface(parameter: RegFileParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val readPorts = Vec(parameter.numReadPorts, new RfReadPort(parameter))
   val writePorts = Vec(parameter.numWritePorts, new RfWritePort(parameter))
 }
@@ -40,11 +41,11 @@ class RegFileInterface(parameter: RegFileParameter) extends Bundle {
 @instantiable
 class RegFile(val parameter: RegFileParameter)
     extends FixedIORawModule(new RegFileInterface(parameter))
-    with SerializableModule[RegFileParameter] 
+    with SerializableModule[RegFileParameter]
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
 
   val gpr = RegInit(VecInit(Seq.fill(parameter.nrReg)(0.U(parameter.dataWidth.W))))
 

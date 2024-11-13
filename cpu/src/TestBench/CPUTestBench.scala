@@ -126,8 +126,8 @@
 ///** Test blackbox for clockgen, wave dump and extra testbench-only codes. */
 //class TestVerbatimInterface(parameter: TestVerbatimParameter) extends Bundle {
 //  val clock: Clock = Output(Clock())
-//  val reset: Reset = Output( 
-//      if (parameter.useAsyncReset) AsyncReset() else Bool() 
+//  val reset: Reset = Output(
+//      if (parameter.useAsyncReset) AsyncReset() else Bool()
 //    )
 //}
 //

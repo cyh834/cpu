@@ -12,11 +12,11 @@ import cpu.frontend._
 
 class IsuInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
-  val reset  = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new DecodeIO(parameter.iduParameter)))
   val out = Decoupled(new DecodeIO(parameter.iduParameter))
   val flush = Input(Bool())
-  val rfread = Vec(parameter.regfileParameter.numReadPorts,Flipped(new RfReadPort(parameter.regfileParameter)))
+  val rfread = Vec(parameter.regfileParameter.numReadPorts, Flipped(new RfReadPort(parameter.regfileParameter)))
   val scoreboard = Flipped(new SB_ISU(parameter.scoreboardParameter))
   val forward = Flipped(new ForwardIO(parameter.LogicRegsWidth, parameter.XLEN))
 }
@@ -24,11 +24,11 @@ class IsuInterface(parameter: CPUParameter) extends Bundle {
 @instantiable
 class ISU(val parameter: CPUParameter)
     extends FixedIORawModule(new IsuInterface(parameter))
-    with SerializableModule[CPUParameter] 
+    with SerializableModule[CPUParameter]
     with ImplicitClock
     with ImplicitReset {
-    override protected def implicitClock: Clock = io.clock
-    override protected def implicitReset: Reset = io.reset
+  override protected def implicitClock: Clock = io.clock
+  override protected def implicitReset: Reset = io.reset
   io.out :<>= io.in
 
   val busy = io.scoreboard.isBusy.reduce(_ | _)

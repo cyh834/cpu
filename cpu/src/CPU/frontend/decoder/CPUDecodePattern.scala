@@ -9,14 +9,13 @@ import chisel3.util.experimental.decode.DecodePattern
 import org.chipsalliance.rvdecoderdb.Instruction
 import org.chipsalliance.rvdecoderdb.Utils._
 
-
 case class CPUDecodePattern(instruction: Instruction, param: DecoderParam) extends DecodePattern {
   override def bitPat: BitPat = BitPat("b" + instruction.encoding.toString)
 
-  //def isR: Boolean = isR(instruction)
-  //def isI: Boolean = isI(instruction)
-  //def isS: Boolean = isS(instruction)
-  //def isB: Boolean = isB(instruction)
-  //def isU: Boolean = isU(instruction)
-  //def isJ: Boolean = isJ(instruction)
+  // def isR: Boolean = isR(instruction)
+  // def isI: Boolean = isI(instruction)
+  // def isS: Boolean = isS(instruction)
+  // def isB: Boolean = isB(instruction)
+  // def isU: Boolean = isU(instruction)
+  // def isJ: Boolean = isJ(instruction)
 }
