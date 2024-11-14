@@ -13,7 +13,7 @@ class WbuInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(DecoupledIO(new WriteBackIO(parameter)))
-  val rfwrite = Flipped(new RfWritePort(parameter.regfileParameter))
+  val rfwrite = Vec(parameter.regfileParameter.numWritePorts, Flipped(new RfWritePort(parameter.regfileParameter)))
   val scoreboard = Flipped(new SB_WB(parameter.scoreboardParameter))
   val redirect = new RedirectIO(parameter.VAddrBits)
   // val flush = Input(Bool())
@@ -27,8 +27,8 @@ class WBU(val parameter: CPUParameter)
     with ImplicitReset {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
-  io.rfwrite <> io.in.bits.wb
-  io.rfwrite.wen := io.in.bits.wb.wen & io.in.valid
+  io.rfwrite(0) <> io.in.bits.wb
+  io.rfwrite(0).wen := io.in.bits.wb.wen & io.in.valid
   io.in.ready := true.B
 
   io.scoreboard.clearidx := Mux(io.in.fire, io.in.bits.wb.addr, 0.U)

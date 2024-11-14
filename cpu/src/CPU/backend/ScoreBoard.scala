@@ -14,7 +14,7 @@ object ScoreBoardParameter {
     upickle.default.macroRW
 }
 
-case class ScoreBoardParameter(useAsyncReset: Boolean, addrWidth: Int, dataWidth: Int, numSrc: Int)
+case class ScoreBoardParameter(useAsyncReset: Boolean,regNum: Int, addrWidth: Int, dataWidth: Int, numSrc: Int)
     extends SerializableModuleParameter {
   val numReadPorts = 2
   val numWritePorts = 1
@@ -49,9 +49,9 @@ class ScoreBoard(val parameter: ScoreBoardParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  val busy = RegInit(0.U(parameter.addrWidth.W))
-  def mask(idx: UInt) = (1.U(parameter.addrWidth.W) << idx)(parameter.addrWidth - 1, 0)
-  busy := Cat(((busy & ~(mask(io.wb.clearidx))) | (mask(io.isu.setidx(0))))(parameter.addrWidth - 1, 1), 0.U(1.W))
+  val busy = RegInit(0.U(parameter.regNum.W))
+  def mask(idx: UInt) = (1.U(parameter.regNum.W) << idx)(parameter.regNum - 1, 0)
+  busy := Cat(((busy & ~(mask(io.wb.clearidx))) | (mask(io.isu.setidx(0))))(parameter.regNum - 1, 1), 0.U(1.W))
   // io.isu.isBusy :=  io.isu.lookidx.map(busy(_)).reduce(_ | _)
   for (i <- 0 until parameter.numSrc)
     io.isu.isBusy(i) := busy(io.isu.lookidx(i))

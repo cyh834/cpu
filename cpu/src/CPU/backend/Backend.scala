@@ -59,10 +59,22 @@ class Backend(val parameter: CPUParameter)
 
   io.dmem <> exu.io.dmem
 
-  val probeWire: BackendProbe = Wire(new BackendProbe(parameter))
-  define(io.probe, ProbeValue(probeWire))
-  probeWire.retire := DontCare
+  layer.block(layers.Verification) {
+    val probeWire: BackendProbe = Wire(new BackendProbe(parameter))
+    define(io.probe, ProbeValue(probeWire))
+    probeWire.retire := 0.U.asTypeOf(probeWire.retire)
+  }
 
+  isu.io.clock := io.clock
+  isu.io.reset := io.reset
+  exu.io.clock := io.clock
+  exu.io.reset := io.reset
+  wbu.io.clock := io.clock
+  wbu.io.reset := io.reset
+  regfile.io.clock := io.clock
+  regfile.io.reset := io.reset
+  scoreboard.io.clock := io.clock
+  scoreboard.io.reset := io.reset
   // io.redirect <> wbu.io.redirect
   // forward
   // isu.io.forward <> exu.io.forward

@@ -5,7 +5,6 @@ import chisel3.util._
 import chisel3.util.experimental.decode._
 import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
-import chisel3.probe.{define, Probe, ProbeValue}
 import chisel3.properties.{AnyClassType, Class, Property}
 import org.chipsalliance.rvdecoderdb.Instruction
 
@@ -35,10 +34,6 @@ trait IDUBundle extends Bundle {
   val xlen = parameter.xlen
 }
 
-class IDUProbe(val parameter: IDUParameter) extends IDUBundle {
-  val instr = UInt(32.W)
-}
-
 class DecodeIO(val parameter: IDUParameter) extends IDUBundle {
   val srcIsReg = Vec(numSrc, Bool())
   val fuType = FuType()
@@ -55,7 +50,8 @@ class DecodeIO(val parameter: IDUParameter) extends IDUBundle {
   val pred_taken = Bool()
   val brtype = Bool()
 
-  val probe = Probe(new IDUProbe(parameter), layers.Verification)
+  //debug
+  val instr = UInt(32.W)
 }
 
 class IDUInterface(val parameter: IDUParameter) extends IDUBundle {
@@ -120,9 +116,8 @@ class IDU(val parameter: IDUParameter)
   io.in.ready := io.out.ready
   io.out.valid := io.in.valid
 
-  val probeWire: IDUProbe = Wire(new IDUProbe(parameter))
-  define(io.out.bits.probe, ProbeValue(probeWire))
-  probeWire.instr := instr
+  //debug
+  io.out.bits.instr := instr
 }
 
 //TODO: 移到IFU作为pre-decode?

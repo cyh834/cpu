@@ -2,7 +2,6 @@ package cpu.backend
 
 import chisel3._
 import chisel3.util._
-import chisel3.probe.{define, Probe, ProbeValue}
 import chisel3.stage._
 import chisel3.util.experimental.BoringUtils
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
@@ -14,16 +13,14 @@ import cpu.frontend._
 import cpu.backend.fu._
 import amba.axi4._
 
-class ExuProbe(parameter: CPUParameter) extends Bundle {
-  val instr = UInt(32.W)
-  val pc = UInt(parameter.VAddrBits.W)
-  val isRVC = Bool()
-}
-
 class WriteBackIO(parameter: CPUParameter) extends Bundle {
   val wb = new RfWritePort(parameter.regfileParameter)
   val redirect = new RedirectIO(parameter.VAddrBits)
-  val probe = Output(Probe(new ExuProbe(parameter), layers.Verification))
+
+  //debug
+  val instr = UInt(32.W)
+  val pc = UInt(parameter.VAddrBits.W)
+  val isRVC = Bool()
 }
 
 class EXUInterface(parameter: CPUParameter) extends Bundle {
@@ -48,8 +45,11 @@ class EXU(val parameter: CPUParameter)
 
   val (fuType, fuOpType, brtype): (UInt, UInt, UInt) = (io.in.bits.fuType, io.in.bits.fuOpType, io.in.bits.brtype)
 
+  io.dmem := DontCare
   // todo: 用循环实现?
   val alu = Instantiate(new ALU(parameter)).io
+  alu.clock := io.clock
+  alu.reset := io.reset
   alu.src := io.in.bits.src
   alu.func := fuOpType
 
@@ -117,10 +117,7 @@ class EXU(val parameter: CPUParameter)
   io.bpuUpdate.ras.bits.isRVC := io.in.bits.isRVC
   io.bpuUpdate.ras.valid := Brtype.isRas(brtype)
 
-  // probe
-  val probeWire: ExuProbe = Wire(new ExuProbe(parameter))
-  define(io.out.bits.probe, ProbeValue(probeWire))
-  probeWire.instr := io.in.bits.probe.instr
-  probeWire.isRVC := io.in.bits.isRVC
-  probeWire.pc := io.in.bits.pc
+  io.out.bits.instr := io.in.bits.instr
+  io.out.bits.isRVC := io.in.bits.isRVC
+  io.out.bits.pc := io.in.bits.pc
 }

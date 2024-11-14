@@ -2,7 +2,6 @@ package cpu.backend
 
 import chisel3._
 import chisel3.util._
-import chisel3.probe.{define, Probe, ProbeValue}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 

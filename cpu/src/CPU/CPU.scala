@@ -95,6 +95,7 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
   )
 
   val scoreboardParameter: ScoreBoardParameter = ScoreBoardParameter(
+    regNum = NrPhyRegs,
     addrWidth = LogicRegsWidth,
     dataWidth = DataBits,
     numSrc = NumSrc,
@@ -153,7 +154,7 @@ class Retire extends Bundle {
 }
 
 class CPUProbe(parameter: CPUParameter) extends Bundle {
-  val retire: Valid[Retire] = Valid(new Retire)
+  val backendProbe: BackendProbe = new BackendProbe(parameter)
 }
 
 /** Metadata of [[CPU]]. */
@@ -172,7 +173,7 @@ class CPUInterface(parameter: CPUParameter) extends Bundle {
   val imem = new AXI4ROIrrevocable(parameter.instructionFetchParameter)
   val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
   val intr = Input(UInt(parameter.NrExtIntr.W))
-  val probe = Output(Probe(new CPUProbe(parameter), layers.Verification))
+  val cpuProbe = Output(Probe(new CPUProbe(parameter), layers.Verification))
   val om = Output(Property[AnyClassType]())
 }
 
@@ -187,22 +188,26 @@ class CPU(val parameter: CPUParameter)
   override protected def implicitReset: Reset = io.reset
 
   val frontend: Instance[Frontend] = Instantiate(new Frontend(parameter))
-  //val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
-  //backend.io.in := DontCare
-  //backend.io.flush := DontCare
-  //PipelineConnect(frontend.io.out, backend.io.in, false.B, false.B)
-  //frontend.io.bpuUpdate <> backend.io.bpuUpdate
+  val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
   frontend.io.clock := io.clock
   frontend.io.reset := io.reset
-  frontend.io.out.ready := DontCare
-  frontend.io.bpuUpdate := DontCare
+  backend.io.clock := io.clock
+  backend.io.reset := io.reset
+
+  backend.io.flush := DontCare
+
+  PipelineConnect(frontend.io.out, backend.io.in, false.B, false.B)
+  frontend.io.bpuUpdate <> backend.io.bpuUpdate
 
   io.imem <> frontend.io.imem
-  io.dmem := DontCare//backend.io.dmem
-  // Assign Probe
-  val probeWire: CPUProbe = Wire(new CPUProbe(parameter))
-  define(io.probe, ProbeValue(probeWire))
-  probeWire.retire := DontCare//backend.io.probe.retire
+  io.dmem <> backend.io.dmem
+
+  layer.block(layers.Verification) {
+    // Assign Probe
+    val probeWire: CPUProbe = Wire(new CPUProbe(parameter))
+    define(io.cpuProbe, ProbeValue(probeWire))
+    probeWire.backendProbe := probe.read(backend.io.probe)
+  }
 
   // Assign Metadata
   val omInstance: Instance[CPUOM] = Instantiate(new CPUOM(parameter))
