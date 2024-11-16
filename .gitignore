@@ -12,8 +12,10 @@ result*
 cpu-sim-result/
 /dependencies/
 target/
+trash/
 
 *.vcd
 *.fst
 *.fsdb
 *.log
+
