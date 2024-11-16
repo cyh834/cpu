@@ -3,7 +3,7 @@ new file mode 100644
 index 00000000..3bc0817d
 --- /dev/null
 +++ b/configs/riscv64-cyh-ref_defconfig
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,126 @@
 +#
 +# CONFIG_ISA_x86 is not set
 +# CONFIG_ISA_mips32 is not set
@@ -130,4 +130,3 @@ index 00000000..3bc0817d
 +CONFIG_RT_CHECK=y
 +CONFIG_ENABLE_INSTR_CNT=y
 +# end of Miscellaneous
-\ No newline at end of file
