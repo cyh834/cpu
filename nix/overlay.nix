@@ -32,4 +32,6 @@ final: prev: {
   projectDependencies = final.callPackage ./pkgs/project-dependencies.nix { };
 
   cpu = final.callPackage ./cpu { };
+
+  libnemu = final.callPackage ./pkgs/libnemu.nix { };
 }
