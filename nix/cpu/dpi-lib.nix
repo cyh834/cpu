@@ -3,6 +3,8 @@
 
 { lib
 , rustPlatform
+, libspike
+, libspike_interfaces
 , tbConfig
 , dpiLibName
 , sv2023 ? true
@@ -19,9 +21,10 @@ rustPlatform.buildRustPackage rec {
     ++ lib.optionals vpi [ "vpi" ] ++ lib.optionals enable-trace [ "trace" ];
 
   env = {
+    SPIKE_LIB_DIR = "${libspike}/lib";
+    SPIKE_INTERFACES_LIB_DIR = "${libspike_interfaces}/lib";
     DESIGN_TIMEOUT = tbConfig.timeout;
     CLOCK_FLIP_TIME = tbConfig.testVerbatimParameter.clockFlipTick * timescale;
-    NEMU_HOME = tbConfig.nemuHome or (throw "tbConfig.nemuHome must be set");
   };
 
   passthru = {
