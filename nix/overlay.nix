@@ -33,5 +33,5 @@ final: prev: {
 
   cpu = final.callPackage ./cpu { };
 
-  libnemu = final.callPackage ./pkgs/libnemu.nix { };
+  libspike = final.callPackage ./pkgs/libspike.nix { };
 }
