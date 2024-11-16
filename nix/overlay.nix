@@ -34,4 +34,5 @@ final: prev: {
   cpu = final.callPackage ./cpu { };
 
   libspike = final.callPackage ./pkgs/libspike.nix { };
+  libspike_interfaces = final.callPackage ../difftest/spike_interfaces { };
 }
