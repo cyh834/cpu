@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2024 Jiuyang Liu <liu@jiuyang.me>
 
-{ lib, newScope, }:
+{ lib, newScope, libspike, libspike_interfaces, libnemu}:
 lib.makeScope newScope (scope:
 let
   designTarget = "CPU";
@@ -26,7 +26,10 @@ in
   tb-mlirbc =
     scope.callPackage ./mlirbc.nix { elaborate = scope.tb-elaborate; };
   tb-rtl = scope.callPackage ./rtl.nix { mlirbc = scope.tb-mlirbc; };
-  tb-dpi-lib = scope.callPackage ./dpi-lib.nix { inherit dpiLibName; };
+  tb-dpi-lib = scope.callPackage ./dpi-lib.nix {
+    inherit dpiLibName;
+    ref-module = "${libnemu}";
+  };
 
   verilated = scope.callPackage ./verilated.nix {
     rtl = scope.tb-rtl.override { enable-layers = [ "Verification" ]; };

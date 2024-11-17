@@ -1,44 +1,62 @@
 use num_bigint::{BigUint, RandBigInt};
 use num_traits::Zero;
 use rand::Rng;
-use tracing::{error, info, trace};
 
 use crate::{
-  device::DEVICE,
-  difftest::{DUT, REF},
-  dpi::{TestPayload, TestPayloadBits},
-  CpuArgs,
+  bus::ShadowBus,
+  dpi::*,
+  TestbenchArgs,
 };
 use svdpi::{get_time, SvScope};
 
-pub enum State {
-  GoodTrap,
-  BadTrap,
+use anyhow::Context;
+use elf::{
+  abi::{EM_RISCV, ET_EXEC, PT_LOAD, STT_FUNC},
+  endian::LittleEndian,
+  ElfStream,
+};
+use std::collections::HashMap;
+use std::os::unix::fs::FileExt;
+use std::{fs, path::Path};
+use tracing::{debug, error, info, trace};
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct FunctionSym {
+  #[allow(dead_code)]
+  pub(crate) name: String,
+  #[allow(dead_code)]
+  pub(crate) info: u8,
+}
+pub type FunctionSymTab = HashMap<u64, FunctionSym>;
+
+pub enum Sim_State {
+  Finished,
   Timeout,
   Running,
 }
 
-const TRAP_PC: u64 = 0x12344321;
+const EXIT_POS: u32 = 0x4000_0000;
+const EXIT_CODE: u32 = 0xdead_beef;
 
 pub(crate) struct Driver {
   #[cfg(feature = "difftest")]
-  refmodule: REF,
+  refmodule: RefModule,
 
-  dut: DUT,
-
-  device: DEVICE,
+  bus: ShadowBus,
 
   scope: SvScope,
 
   #[cfg(feature = "trace")]
   dump_control: DumpControl,
 
+  pub(crate) e_entry: u64,
   pub(crate) data_width: u64,
   pub(crate) timeout: u64,
   pub(crate) clock_flip_time: u64,
   last_commit_cycle: u64,
 
-  pub(crate) state: State,
+  pub(crate) state: Sim_State,
 }
 
 impl Driver {
@@ -46,126 +64,231 @@ impl Driver {
     get_time() / self.clock_flip_time
   }
 
-  pub(crate) fn new(scope: SvScope, dut: DUT, args: &SimArgs) -> Self {
+  pub(crate) fn new(scope: SvScope, args: &SimArgs) -> Self {
+
+    let (e_entry, shadow_bus, _fn_sym_tab, refmodule) =
+      Self::load_elf(&args.elf_file).expect("fail creating simulator");
+
     let mut self_ = Self {
       #[cfg(feature = "difftest")]
-      refmodule: REF::new(),
-      dut: dut,
-      device: DEVICE::new(),
+      refmodule,
+      bus: shadow_bus,
       scope,
       #[cfg(feature = "trace")]
       dump_control: DumpControl::new(scope, &args.wave_path, args.dump_start, args.dump_end),
+      e_entry,
       data_width: env!("DESIGN_DATA_WIDTH").parse().unwrap(),
       timeout: env!("DESIGN_TIMEOUT").parse().unwrap(),
       clock_flip_time: env!("CLOCK_FLIP_TIME").parse().unwrap(),
       last_commit_cycle: 0,
+      state: Sim_State::Running,
     };
-    self_.device.load_elf(&args.elf_file).unwrap();
     self_
   }
 
+  pub fn load_elf(path: &Path) -> anyhow::Result<(u64, ShadowBus, FunctionSymTab, RefModule)> {
+    let file = fs::File::open(path).with_context(|| "reading ELF file")?;
+    let mut elf: ElfStream<LittleEndian, _> =
+      ElfStream::open_stream(&file).with_context(|| "parsing ELF file")?;
+
+    if elf.ehdr.e_machine != EM_RISCV {
+      anyhow::bail!("ELF is not in RISC-V");
+    }
+
+    if elf.ehdr.e_type != ET_EXEC {
+      anyhow::bail!("ELF is not an executable");
+    }
+
+    if elf.ehdr.e_phnum == 0 {
+      anyhow::bail!("ELF has zero size program header");
+    }
+
+    debug!("ELF entry: 0x{:x}", elf.ehdr.e_entry);
+    let mut mem = ShadowBus::new();
+    let mut load_buffer = Vec::new();
+    #[cfg(feature = "difftest")]
+    let refmodule = RefModule::new();
+
+    elf.segments().iter().filter(|phdr| phdr.p_type == PT_LOAD).for_each(|phdr| {
+      let vaddr: usize = phdr.p_vaddr.try_into().expect("fail converting vaddr(u64) to usize");
+      let filesz: usize = phdr.p_filesz.try_into().expect("fail converting p_filesz(u64) to usize");
+      debug!(
+        "Read loadable segments 0x{:x}..0x{:x} to memory 0x{:x}",
+        phdr.p_offset,
+        phdr.p_offset + filesz as u64,
+        vaddr
+      );
+
+      // Load file start from offset into given mem slice
+      // The `offset` of the read_at method is relative to the start of the file and thus independent from the current cursor.
+      load_buffer.resize(filesz, 0u8);
+      file.read_at(load_buffer.as_mut_slice(), phdr.p_offset).unwrap_or_else(|err| {
+        panic!(
+          "fail reading ELF into mem with vaddr={}, filesz={}, offset={}. Error detail: {}",
+          vaddr, filesz, phdr.p_offset, err
+        )
+      });
+      mem.load_mem_seg(vaddr, load_buffer.as_mut_slice());
+      #[cfg(feature = "difftest")]
+      refmodule.load_elf_seg(vaddr, load_buffer.as_mut_slice());
+    });
+
+    // FIXME: now the symbol table doesn't contain any function value
+    let mut fn_sym_tab = FunctionSymTab::new();
+    let symbol_table =
+      elf.symbol_table().with_context(|| "reading symbol table(SHT_SYMTAB) from ELF")?;
+    if let Some((parsed_table, string_table)) = symbol_table {
+      parsed_table
+        .iter()
+        // st_symtype = symbol.st_info & 0xf (But why masking here?)
+        .filter(|sym| sym.st_symtype() == STT_FUNC)
+        .for_each(|sym| {
+          let name = string_table
+            .get(sym.st_name as usize)
+            .unwrap_or_else(|_| panic!("fail to get name at st_name={}", sym.st_name));
+          fn_sym_tab.insert(
+            sym.st_value,
+            FunctionSym { name: name.to_string(), info: sym.st_symtype() },
+          );
+        });
+    } else {
+      debug!("load_elf: symtab not found");
+    };
+
+    Ok((elf.ehdr.e_entry, mem, fn_sym_tab, refmodule))
+  }
+
+  pub(crate) fn axi_read_load_store(&mut self, addr: u32, arsize: u64) -> AxiReadPayload {
+    let size = 1 << arsize;
+    let bus_size = if size == 32 { 32 } else { 4 };
+    let data = self.shadow_bus.read_mem_axi(addr, size, bus_size);
+    let data_hex = hex::encode(&data);
+    self.last_commit_cycle = get_t();
+    trace!(
+      "[{}] axi_read_load_store (addr={addr:#x}, size={size}, data={data_hex})",
+      get_t()
+    );
+    AxiReadPayload { data }
+  }
+
+  pub(crate) fn axi_write_load_store(
+    &mut self,
+    addr: u32,
+    awsize: u64,
+    strobe: &[bool],
+    data: &[u8]
+  ) {
+    let size = 1 << awsize;
+    let bus_size = if size == 32 { 32 } else { 4 };
+    self.shadow_bus.write_mem_axi(addr, size, bus_size, strobe, data);
+    let data_hex = hex::encode(data);
+    self.last_commit_cycle = get_t();
+
+    trace!(
+      "[{}] axi_write_load_store (addr={addr:#x}, size={size}, data={data_hex})",
+      get_t()
+    );
+
+    // check exit with code
+    if addr == EXIT_POS {
+      let exit_data_slice = data[..4].try_into().expect("slice with incorrect length");
+      if u32::from_le_bytes(exit_data_slice) == EXIT_CODE {
+        info!("driver is ready to quit");
+        self.state = Sim_State::Finished;
+      }
+    }
+  }
+
+  pub(crate) fn axi_read_instruction_fetch(&mut self, addr: u32, arsize: u64) -> AxiReadPayload {
+    let size = 1 << arsize;
+    let data = self.shadow_bus.read_mem_axi(addr, size, 32);
+    let data_hex = hex::encode(&data);
+    trace!(
+      "[{}] axi_read_instruction_fetch (addr={addr:#x}, size={size}, data={data_hex})",
+      get_t()
+    );
+    AxiReadPayload { data }
+  }
+
   pub(crate) fn watchdog(&mut self) -> u8 {
-    if (self.state != State::Running) {
+    if (self.state != Sim_State::Running) {
       return self.state;
     }
 
     let tick = self.get_tick();
     if tick - self.last_commit_cycle > self.timeout {
       error!("[{tick}] watchdog timeout (last_commit_cycle={self.last_input_cycle})");
-      State::Timeout;
+      Sim_State::Timeout;
     } else {
       #[cfg(feature = "trace")]
       if self.dump_control.isend() {
         info!("[{tick}] run to dump end, exiting");
-        return State::GoodTrap;
+        return Sim_State::Finished;
       }
 
       #[cfg(feature = "trace")]
       self.dump_control.try_start(tick);
 
       trace!("[{tick}] watchdog continue");
-      State::Running
+      Sim_State::Running
     }
   }
 
   #[cfg(feature = "difftest")]
-  pub(crate) fn retire_instruction(&mut self, Data: &RetireData) {
-    let mut dut_state = DUT::new();
-    //TODO: too ugly
-    dut_state.gpr = Data.gpr;
-    dut_state.mode = Data.mode;
-    dut_state.mstatus = Data.mstatus;
-    dut_state.sstatus = Data.sstatus;
-    dut_state.mepc = Data.mepc;
-    dut_state.sepc = Data.sepc;
-    dut_state.mtval = Data.mtval;
-    dut_state.stval = Data.stval;
-    dut_state.mtvec = Data.mtvec;
-    dut_state.stvec = Data.stvec;
-    dut_state.mcause = Data.mcause;
-    dut_state.scause = Data.scause;
-    dut_state.satp = Data.satp;
-    dut_state.mip = Data.mip;
-    dut_state.mie = Data.mie;
-    dut_state.mscratch = Data.mscratch;
-    dut_state.sscratch = Data.sscratch;
-    dut_state.mideleg = Data.mideleg;
-    dut_state.medeleg = Data.medeleg;
-    dut_state.pc = Data.pc;
-    self.dut.step_once(
-      &dut_state,
-      Data.skip,
-      Data.is_rvc,
-      Data.rfwen,
-      Data.inst,
-      Data.is_load,
-      Data.is_store,
-    );
+  pub(crate) fn retire_instruction(&mut self, dut: &RetireData) {
+    let ref = self.refmodule.step();
+    let csr = dut.csr;
 
-    if Data.pc == TRAP_PC {
-      match Data.gpr[10] {
-        0 => {
-          self.state = State::GoodTrap;
-        }
-        _ => {
-          self.state = State::BadTrap;
-        }
+    if ref.skip {
+      let event = NemuEvent{
+        gpr: dut.gpr,
+        csr,
+        pc: dut.pc
+      };
+      self.refmodule.override_event(event);
+      return;
+    }
+
+    let mut mismatch = false;
+    //check gpr 
+    for i in 0..32 {
+      if ref.gpr[i] != dut.gpr[i] {
+        println!("gpr{} mismatch! ref={:#x}, dut={:#x}", i, ref.gpr[i], dut.gpr[i]);
+        mismatch = true;
       }
     }
-  }
-  //pub(crate) fn instr_commit(
-  //    &mut self,
-  //    skip: bool,
-  //    is_rvc: bool,
-  //    rfwen: bool,
-  //    pc: u64,
-  //    instr: u32,
-  //    is_load: bool,
-  //    is_store: bool,
-  //) {
-  //  self.dut.setpc(pc);
-  //  self.dut.step();
-  //}
 
-  //pub(crate) fn trap_event(
-  //    &mut self,
-  //    has_trap: bool,
-  //    trap_code: u32,
-  //    pc: u64,
-  //    cycle_cnt: u64,
-  //    instr_cnt: u64,
-  //    has_wfi: bool,
-  //) {
-  //  if has_trap {
-  //    if trap_code == 0 {
-  //      trace!("Got a good trap \npc={pc} cycle_cnt={cycle_cnt} instr_cnt={instr_cnt}");
-  //      self.state = State::GoodTrap;
-  //    } else {
-  //      trace!("Got a bad trap  \npc={pc} cycle_cnt={cycle_cnt} instr_cnt={instr_cnt}");
-  //      self.state = State::BadTrap;
-  //    }
-  //  }
-  //}
+    //check pc
+    if ref.pc != dut.pc {
+      println!("pc mismatch! ref={:#x}, dut={:#x}", ref.pc, dut.pc);
+      mismatch = true;
+    }
+
+    //check csr
+    for i in 0..18 {
+      if ref.csr[i] != dut.csr[i] {
+        println!("csr{} mismatch! ref={:#x}, dut={:#x}", csr_name(i), ref.csr[i], dut.csr[i]);
+        mismatch = true;
+      }
+    }
+
+    if mismatch {
+      println!("dut display:");
+      println!("pc:{:#x}", dut.pc);
+      println!("inst:{:#x}", dut.inst);
+      for i in 0..32 {
+        println!("gpr{}:{:#x}", i, dut.gpr[i]);
+      }
+      for i in 0..18 {
+        println!("csr{}:{:#x}", csr_name(i), dut.csr[i]);
+      }
+
+      println!("ref display:");
+      self.refmodule.display();
+      panic!("difftest mismatch!");
+      //self.state = Sim_State::Finished;
+    }
+  }
 }
 
 #[cfg(feature = "trace")]

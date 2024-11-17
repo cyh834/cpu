@@ -1,10 +1,13 @@
+#![allow(non_snake_case)]
+#![allow(unused_variables)]
+
 use std::cmp::max;
 use std::ffi::{c_char, CString};
 use std::sync::Mutex;
 
 use crate::drive::Driver;
 use crate::plusarg::PlusArgMatcher;
-use crate::CpuArgs;
+use crate::TestbenchArgs;
 use num_bigint::BigUint;
 use svdpi::sys::dpi::{svBitVecVal, svLogic};
 use svdpi::SvScope;
@@ -17,30 +20,67 @@ pub type SvBitVecVal = u32;
 
 static DPI_TARGET: Mutex<Option<Box<Driver>>> = Mutex::new(None);
 
+pub(crate) struct AxiReadPayload {
+  pub(crate) data: Vec<u8>,
+}
+
+unsafe fn write_to_pointer(dst: *mut u8, data: &[u8]) {
+  let dst = std::slice::from_raw_parts_mut(dst, data.len());
+  dst.copy_from_slice(data);
+}
+
+unsafe fn fill_axi_read_payload(dst: *mut SvBitVecVal, dlen: u32, payload: &AxiReadPayload) {
+  let data_len = 256 * (dlen / 8) as usize;
+  assert!(payload.data.len() <= data_len);
+  write_to_pointer(dst as *mut u8, &payload.data);
+}
+
+unsafe fn load_from_payload(
+  payload: &*const SvBitVecVal,
+  data_width: usize,
+  size: usize,
+) -> (Vec<bool>, &[u8]) {
+  let src = *payload as *mut u8;
+  let data_width_in_byte = std::cmp::max(size, 4);
+  let strb_width_per_byte = if data_width < 64 { 4 } else { 8 };
+  let strb_width_in_byte = size.div_ceil(strb_width_per_byte);
+
+  let payload_size_in_byte = strb_width_in_byte + data_width_in_byte; // data width in byte
+  let byte_vec = std::slice::from_raw_parts(src, payload_size_in_byte);
+  let strobe = &byte_vec[0..strb_width_in_byte];
+  let data = &byte_vec[strb_width_in_byte..];
+
+  let masks: Vec<bool> = strobe
+    .into_iter()
+    .flat_map(|strb| {
+      let mask: Vec<bool> = (0..strb_width_per_byte).map(|i| (strb & (1 << i)) != 0).collect();
+      mask
+    })
+    .collect();
+  assert_eq!(
+    masks.len(),
+    data.len(),
+    "strobe bit width is not aligned with data byte width"
+  );
+
+  debug!(
+    "load {payload_size_in_byte} byte from payload: raw_data={} strb={} data={}",
+    hex::encode(byte_vec),
+    hex::encode(strobe),
+    hex::encode(data),
+  );
+
+  (masks, data)
+}
+
+
+
 #[repr(C, packed)]
 pub(crate) struct RetireData {
   pub inst: u32,
   pub pc: u64,
   pub gpr: [u64; 32],
-  //csr
-  pub mode: u64,
-  pub mstatus: u64,
-  pub sstatus: u64,
-  pub mepc: u64,
-  pub sepc: u64,
-  pub mtval: u64,
-  pub stval: u64,
-  pub mtvec: u64,
-  pub stvec: u64,
-  pub mcause: u64,
-  pub scause: u64,
-  pub satp: u64,
-  pub mip: u64,
-  pub mie: u64,
-  pub mscratch: u64,
-  pub sscratch: u64,
-  pub mideleg: u64,
-  pub medeleg: u64,
+  pub csr: [u64; 18],
 
   pub skip: bool,
   pub is_rvc: bool,
@@ -52,6 +92,100 @@ pub(crate) struct RetireData {
 //----------------------
 // dpi functions
 //----------------------
+#[no_mangle]
+unsafe extern "C" fn axi_write_loadStoreAXI(
+  channel_id: c_longlong,
+  awid: c_longlong,
+  awaddr: c_longlong,
+  awlen: c_longlong,
+  awsize: c_longlong,
+  awburst: c_longlong,
+  awlock: c_longlong,
+  awcache: c_longlong,
+  awprot: c_longlong,
+  awqos: c_longlong,
+  awregion: c_longlong,
+  payload: *const SvBitVecVal,
+) {
+  debug!(
+    "axi_write_loadStore (channel_id={channel_id}, awid={awid}, awaddr={awaddr:#x}, \
+  awlen={awlen}, awsize={awsize}, awburst={awburst}, awlock={awlock}, awcache={awcache}, \
+  awprot={awprot}, awqos={awqos}, awregion={awregion})"
+  );
+  TARGET.with(|driver| {
+    let data_width = if awsize <= 2 { 32 } else { 8 * (1 << awsize) } as usize;
+    let (strobe, data) = load_from_payload(&payload, data_width, (driver.dlen / 8) as usize);
+    driver.axi_write_load_store(awaddr as u32, awsize as u64, &strobe, data);
+  });
+}
+
+#[no_mangle]
+unsafe extern "C" fn axi_read_loadStoreAXI(
+  channel_id: c_longlong,
+  arid: c_longlong,
+  araddr: c_longlong,
+  arlen: c_longlong,
+  arsize: c_longlong,
+  arburst: c_longlong,
+  arlock: c_longlong,
+  arcache: c_longlong,
+  arprot: c_longlong,
+  arqos: c_longlong,
+  arregion: c_longlong,
+  payload: *mut SvBitVecVal,
+) {
+  // chisel use sync reset, registers are not reset at time=0
+  // to avoid DPI trace (especially in verilator), we filter it here
+  if svdpi::get_time() == 0 {
+    debug!("axi_read_loadStoreAXI (ignored at time zero)");
+    // TODO: better to fill zero to payload, but maintain the correct length for payload is too messy
+    return;
+  }
+
+  debug!(
+    "axi_read_loadStoreAXI (channel_id={channel_id}, arid={arid}, araddr={araddr:#x}, \
+  arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
+  arprot={arprot}, arqos={arqos}, arregion={arregion})"
+  );
+  TARGET.with(|driver| {
+    let response = driver.axi_read_load_store(araddr as u32, arsize as u64);
+    fill_axi_read_payload(payload, driver.dlen, &response);
+  });
+}
+
+#[no_mangle]
+unsafe extern "C" fn axi_read_instructionFetchAXI(
+  channel_id: c_longlong,
+  arid: c_longlong,
+  araddr: c_longlong,
+  arlen: c_longlong,
+  arsize: c_longlong,
+  arburst: c_longlong,
+  arlock: c_longlong,
+  arcache: c_longlong,
+  arprot: c_longlong,
+  arqos: c_longlong,
+  arregion: c_longlong,
+  payload: *mut SvBitVecVal,
+) {
+  // chisel use sync reset, registers are not reset at time=0
+  // to avoid DPI trace (especially in verilator), we filter it here
+  if svdpi::get_time() == 0 {
+    debug!("axi_read_instructionFetchAXI (ignored at time zero)");
+    // TODO: better to fill zero to payload, but maintain the correct length for payload is too messy
+    return;
+  }
+
+  debug!(
+    "axi_read_instructionFetchAXI (channel_id={channel_id}, arid={arid}, araddr={araddr:#x}, \
+  arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
+  arprot={arprot}, arqos={arqos}, arregion={arregion})"
+  );
+  TARGET.with(|driver| {
+    let response = driver.axi_read_instruction_fetch(araddr as u32, arsize as u64);
+    fill_axi_read_payload(payload, driver.dlen, &response);
+  });
+}
 
 #[no_mangle]
 unsafe extern "C" fn sim_init() {
@@ -89,67 +223,14 @@ unsafe extern "C" fn retire_instruction(retire_src: *const SvBitVecVal) {
   }
 }
 
-//#[no_mangle]
-//unsafe extern "C" fn difftest_ArchIntRegState(gpr: *mut c_longlong) {
-//    let mut driver = DPI_TARGET.lock().unwrap();
-//    if let Some(driver) = driver.as_mut() {
-//       driver.dut.setgpr(gpr);
-//    }
-//}
+#[no_mangle]
+unsafe extern "C" fn get_resetvector(resetvector: *mut c_longlong) {
+  let mut driver = DPI_TARGET.lock().unwrap();
+  if let Some(driver) = driver.as_mut() {
+    *resetvector = driver.e_entry as c_longlong;
+  }
+}
 
-//#[no_mangle]
-//unsafe extern "C" fn difftest_CSRState(
-//    mode: u64,mstatus: u64,sstatus: u64,
-//    mepc: u64,sepc: u64,mtval: u64,stval: u64,
-//    mtvec: u64,stvec: u64,mcause: u64,scause: u64,
-//    satp: u64,mip: u64,mie: u64,mscratch: u64,
-//    sscratch: u64,mideleg: u64,medeleg: u64,
-//) {
-//    let mut driver = DPI_TARGET.lock().unwrap();
-//    if let Some(driver) = driver.as_mut() {
-//        driver.dut.setcsr(
-//            mode,mstatus,sstatus,
-//            mepc,sepc,mtval,stval,
-//            mtvec,stvec,mcause,scause,
-//            satp,mip,mie,mscratch,
-//            sscratch,mideleg,medeleg
-//        );
-//    }
-//}
-
-//#[no_mangle]
-//unsafe extern "C" fn difftest_InstrCommit (
-//    skip: bool, is_rvc: bool, rfwen: bool,
-//    pc: u64, instr: u32,
-//    is_load: bool, is_store: bool,
-//) {
-//    let mut driver = DPI_TARGET.lock().unwrap();
-//    if let Some(driver) = driver.as_mut() {
-//        driver.instr_commit(
-//            skip, is_rvc, rfwen,
-//            pc, instr,
-//            is_load, is_store
-//        );
-//    }
-//}
-
-//#[no_mangle]
-//unsafe extern "C" fn difftest_TrapEvent (
-//    hasTrap: bool, Trapcode: u32, pc: u64
-//    cycleCnt: u64, instrCnt: u64,
-//    hasWFI: bool
-//) {
-//    let mut driver = DPI_TARGET.lock().unwrap();
-//    if let Some(driver) = driver.as_mut() {
-//        driver.trap_event(
-//            hasTrap, Trapcode, pc,
-//            cycleCnt, instrCnt,
-//            hasWFI
-//        );
-//    }
-//}
-
-//TODO: AXI
 
 //--------------------------------
 // import functions and wrappers

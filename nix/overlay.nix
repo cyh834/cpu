@@ -31,9 +31,15 @@ final: prev: {
 
   projectDependencies = final.callPackage ./pkgs/project-dependencies.nix { };
 
+  ## no support spike yet
   libspike = final.callPackage ./pkgs/libspike.nix { };
+  libspike_interfaces = final.callPackage ../spike_interfaces { };
 
-  libspike_interfaces = final.callPackage ../difftest/spike_interfaces { };
+  ## nix build failed，so download directly
+  libnemu = final.fetchurl {
+    url = "https://raw.githubusercontent.com/cyh834/NEMU/master/artifact/riscv64-nemu-interpreter-so";
+    sha256 = "sha256-A8b/3GTcWZjKXpo4xQ4jceyyVAENDw23EpI6OejuTiM=";
+  };
 
   cpu = final.callPackage ./cpu { };
 }
