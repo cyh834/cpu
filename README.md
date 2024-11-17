@@ -71,6 +71,9 @@ nix develop -c bash -c 'mill -i cpu.reformat'
 # 格式化Rust代码
 cd cpuemu
 nix develop -c cargo fmt
+
+# 删除多余的依赖，尚不知道怎么优化，反正能跑（
+rm -rf dependencies/
 ```
 
 ### 更新依赖

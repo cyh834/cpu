@@ -2,11 +2,7 @@ use num_bigint::{BigUint, RandBigInt};
 use num_traits::Zero;
 use rand::Rng;
 
-use crate::{
-  bus::ShadowBus,
-  dpi::*,
-  TestbenchArgs,
-};
+use crate::{bus::ShadowBus, dpi::*, TestbenchArgs};
 use svdpi::{get_time, SvScope};
 
 use anyhow::Context;
@@ -65,7 +61,6 @@ impl Driver {
   }
 
   pub(crate) fn new(scope: SvScope, args: &SimArgs) -> Self {
-
     let (e_entry, shadow_bus, _fn_sym_tab, refmodule) =
       Self::load_elf(&args.elf_file).expect("fail creating simulator");
 
@@ -176,7 +171,7 @@ impl Driver {
     addr: u32,
     awsize: u64,
     strobe: &[bool],
-    data: &[u8]
+    data: &[u8],
   ) {
     let size = 1 << awsize;
     let bus_size = if size == 32 { 32 } else { 4 };
@@ -236,38 +231,41 @@ impl Driver {
 
   #[cfg(feature = "difftest")]
   pub(crate) fn retire_instruction(&mut self, dut: &RetireData) {
-    let ref = self.refmodule.step();
-    let csr = dut.csr;
+    let ref_event = self.refmodule.step();
 
-    if ref.skip {
-      let event = NemuEvent{
-        gpr: dut.gpr,
-        csr,
-        pc: dut.pc
-      };
+    if dut.skip {
+      let event = NemuEvent { gpr: dut.gpr, csr: dut.csr, pc: dut.pc };
       self.refmodule.override_event(event);
       return;
     }
 
     let mut mismatch = false;
-    //check gpr 
+    //check gpr
     for i in 0..32 {
-      if ref.gpr[i] != dut.gpr[i] {
-        println!("gpr{} mismatch! ref={:#x}, dut={:#x}", i, ref.gpr[i], dut.gpr[i]);
+      if ref_event.gpr[i] != dut.gpr[i] {
+        println!(
+          "gpr{} mismatch! ref={:#x}, dut={:#x}",
+          i, ref_event.gpr[i], dut.gpr[i]
+        );
         mismatch = true;
       }
     }
 
     //check pc
-    if ref.pc != dut.pc {
-      println!("pc mismatch! ref={:#x}, dut={:#x}", ref.pc, dut.pc);
+    if ref_event.pc != dut.pc {
+      println!("pc mismatch! ref={:#x}, dut={:#x}", ref_event.pc, dut.pc);
       mismatch = true;
     }
 
     //check csr
     for i in 0..18 {
-      if ref.csr[i] != dut.csr[i] {
-        println!("csr{} mismatch! ref={:#x}, dut={:#x}", csr_name(i), ref.csr[i], dut.csr[i]);
+      if ref_event.csr[i] != dut.csr[i] {
+        println!(
+          "csr{} mismatch! ref={:#x}, dut={:#x}",
+          csr_name(i),
+          ref_event.csr[i],
+          dut.csr[i]
+        );
         mismatch = true;
       }
     }

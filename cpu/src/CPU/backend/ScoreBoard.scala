@@ -14,7 +14,7 @@ object ScoreBoardParameter {
     upickle.default.macroRW
 }
 
-case class ScoreBoardParameter(useAsyncReset: Boolean,regNum: Int, addrWidth: Int, dataWidth: Int, numSrc: Int)
+case class ScoreBoardParameter(useAsyncReset: Boolean, regNum: Int, addrWidth: Int, dataWidth: Int, numSrc: Int)
     extends SerializableModuleParameter {
   val numReadPorts = 2
   val numWritePorts = 1

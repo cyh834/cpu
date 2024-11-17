@@ -17,7 +17,7 @@ class WriteBackIO(parameter: CPUParameter) extends Bundle {
   val wb = new RfWritePort(parameter.regfileParameter)
   val redirect = new RedirectIO(parameter.VAddrBits)
 
-  //debug
+  // debug
   val instr = UInt(32.W)
   val pc = UInt(parameter.VAddrBits.W)
   val isRVC = Bool()

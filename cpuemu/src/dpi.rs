@@ -73,8 +73,6 @@ unsafe fn load_from_payload(
   (masks, data)
 }
 
-
-
 #[repr(C, packed)]
 pub(crate) struct RetireData {
   pub inst: u32,
@@ -230,7 +228,6 @@ unsafe extern "C" fn get_resetvector(resetvector: *mut c_longlong) {
     *resetvector = driver.e_entry as c_longlong;
   }
 }
-
 
 //--------------------------------
 // import functions and wrappers

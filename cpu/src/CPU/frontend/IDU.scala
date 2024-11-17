@@ -50,7 +50,7 @@ class DecodeIO(val parameter: IDUParameter) extends IDUBundle {
   val pred_taken = Bool()
   val brtype = Bool()
 
-  //debug
+  // debug
   val instr = UInt(32.W)
 }
 
@@ -116,7 +116,7 @@ class IDU(val parameter: IDUParameter)
   io.in.ready := io.out.ready
   io.out.valid := io.in.valid
 
-  //debug
+  // debug
   io.out.bits.instr := instr
 }
 
