@@ -1,7 +1,6 @@
 mod mem;
 
 use mem::*;
-use tracing::{debug, error, trace};
 
 struct ShadowBusDevice {
   base: usize,

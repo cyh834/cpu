@@ -9,6 +9,12 @@ use tracing_subscriber::{EnvFilter, FmtSubscriber};
 pub mod dpi;
 pub mod drive;
 pub mod plusarg;
+pub mod bus;
+pub mod RefModule;
+
+pub fn get_t() -> u64 {
+  0
+}
 
 pub(crate) struct SimArgs {
   /// Path to the ELF file
@@ -19,7 +25,7 @@ pub(crate) struct SimArgs {
 
   pub log_level: String,
 
-  // ISA config
+  // ISA config, no use
   pub set: String,
   pub lvl: String,
 
@@ -52,12 +58,12 @@ impl SimArgs {
       elf_file: matcher.match_("elf-file").into(),
       log_file: matcher.try_match("log-file").map(PathBuf::from),
       log_level: matcher.try_match("log-level").unwrap_or("info").into(),
-      set: matcher.match_("set"),
-      lvl: matcher.match_("lvl"),
+      set: matcher.try_match("set").unwrap_or("rv64imafdc").into(),
+      lvl: matcher.try_match("lvl").unwrap_or("u").into(),
       #[cfg(feature = "trace")]
-      dump_start: matcher.match_("dump-start").parse().unwrap(),
+      dump_start: matcher.try_match("dump-start").unwrap_or("0").parse().unwrap(),
       #[cfg(feature = "trace")]
-      dump_end: matcher.match_("dump-end").parse().unwrap(),
+      dump_end: matcher.try_match("dump-end").unwrap_or("0").parse().unwrap(),
       #[cfg(feature = "trace")]
       wave_path: matcher.match_("wave-path").into(),
     }

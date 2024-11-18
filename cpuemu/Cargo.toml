@@ -10,11 +10,15 @@ num-traits = "0.2.19"
 num-bigint = { version = "0.4.6", features = ["rand"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "ansi"] }
+anyhow = "1.0.79"
+xmas-elf = "0.9.1"
+hex = "0.4.3"
 
 [features]
 sv2023 = ["svdpi/sv2023"]
 trace = []
 vpi = ["svdpi/vpi"]
+difftest = []
 
 [lib]
 crate-type = ["staticlib"]

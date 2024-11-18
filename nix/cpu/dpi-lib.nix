@@ -17,7 +17,7 @@
 rustPlatform.buildRustPackage rec {
   name = "dpi-lib";
   src = ./../../${dpiLibName};
-  cargoHash = "sha256-AjL+iyigdG8Ah6SS8m5tnvoDb7D6oFjOTWw3MU+Wq8k=";
+  cargoHash = "sha256-zFowBTglrJhdHe2H+QrDR6xPF/QFNfqHtY6JFT6ku2Q=";
   buildFeatures = lib.optionals sv2023 [ "sv2023" ]
     ++ lib.optionals vpi [ "vpi" ] ++ lib.optionals enable-trace [ "trace" ]
     ++ lib.optionals difftest [ "difftest" ];

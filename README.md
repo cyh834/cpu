@@ -87,7 +87,9 @@ nix run '.#nvfetcher'
 
 # 更新mill依赖
 nix build '.#cpu.cpu-compiled.millDeps' --rebuild
+
 ```
+最后更新相应的Hash
 
 ## 参考
 

@@ -1,10 +1,7 @@
-use num_bigint::{BigUint, RandBigInt};
-use num_traits::Zero;
-use rand::Rng;
+mod RefModule;
+use RefModule::*;
 
-use crate::{bus::ShadowBus, dpi::*, TestbenchArgs};
 use svdpi::{get_time, SvScope};
-
 use anyhow::Context;
 use elf::{
   abi::{EM_RISCV, ET_EXEC, PT_LOAD, STT_FUNC},
@@ -12,9 +9,9 @@ use elf::{
   ElfStream,
 };
 use std::collections::HashMap;
-use std::os::unix::fs::FileExt;
 use std::{fs, path::Path};
 use tracing::{debug, error, info, trace};
+use std::os::unix::fs::FileExt;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -26,10 +23,12 @@ pub struct FunctionSym {
 }
 pub type FunctionSymTab = HashMap<u64, FunctionSym>;
 
-pub enum Sim_State {
-  Finished,
-  Timeout,
-  Running,
+#[repr(u8)]
+#[derive(Copy, Clone)]
+pub enum SimState {
+    Finished = 0,
+    Timeout,
+    Running,
 }
 
 const EXIT_POS: u32 = 0x4000_0000;
@@ -47,12 +46,12 @@ pub(crate) struct Driver {
   dump_control: DumpControl,
 
   pub(crate) e_entry: u64,
-  pub(crate) data_width: u64,
+  //pub(crate) data_width: u64,
   pub(crate) timeout: u64,
   pub(crate) clock_flip_time: u64,
   last_commit_cycle: u64,
 
-  pub(crate) state: Sim_State,
+  pub(crate) state: SimState,
 }
 
 impl Driver {
@@ -72,11 +71,11 @@ impl Driver {
       #[cfg(feature = "trace")]
       dump_control: DumpControl::new(scope, &args.wave_path, args.dump_start, args.dump_end),
       e_entry,
-      data_width: env!("DESIGN_DATA_WIDTH").parse().unwrap(),
+      //data_width: env!("DESIGN_DATA_WIDTH").parse().unwrap(),
       timeout: env!("DESIGN_TIMEOUT").parse().unwrap(),
       clock_flip_time: env!("CLOCK_FLIP_TIME").parse().unwrap(),
       last_commit_cycle: 0,
-      state: Sim_State::Running,
+      state: SimState::Running,
     };
     self_
   }
@@ -156,7 +155,7 @@ impl Driver {
   pub(crate) fn axi_read_load_store(&mut self, addr: u32, arsize: u64) -> AxiReadPayload {
     let size = 1 << arsize;
     let bus_size = if size == 32 { 32 } else { 4 };
-    let data = self.shadow_bus.read_mem_axi(addr, size, bus_size);
+    let data = self.bus.read_mem_axi(addr, size, bus_size);
     let data_hex = hex::encode(&data);
     self.last_commit_cycle = get_t();
     trace!(
@@ -175,7 +174,7 @@ impl Driver {
   ) {
     let size = 1 << awsize;
     let bus_size = if size == 32 { 32 } else { 4 };
-    self.shadow_bus.write_mem_axi(addr, size, bus_size, strobe, data);
+    self.bus.write_mem_axi(addr, size, bus_size, strobe, data);
     let data_hex = hex::encode(data);
     self.last_commit_cycle = get_t();
 
@@ -189,14 +188,14 @@ impl Driver {
       let exit_data_slice = data[..4].try_into().expect("slice with incorrect length");
       if u32::from_le_bytes(exit_data_slice) == EXIT_CODE {
         info!("driver is ready to quit");
-        self.state = Sim_State::Finished;
+        self.state = SimState::Finished;
       }
     }
   }
 
   pub(crate) fn axi_read_instruction_fetch(&mut self, addr: u32, arsize: u64) -> AxiReadPayload {
     let size = 1 << arsize;
-    let data = self.shadow_bus.read_mem_axi(addr, size, 32);
+    let data = self.bus.read_mem_axi(addr, size, 32);
     let data_hex = hex::encode(&data);
     trace!(
       "[{}] axi_read_instruction_fetch (addr={addr:#x}, size={size}, data={data_hex})",
@@ -206,27 +205,37 @@ impl Driver {
   }
 
   pub(crate) fn watchdog(&mut self) -> u8 {
-    if (self.state != Sim_State::Running) {
-      return self.state;
-    }
+    self.state = match self.state {
+        SimState::Finished => SimState::Finished,
+        SimState::Timeout => SimState::Timeout,
+        SimState::Running => {
+            //check timeout
+            let tick = self.get_tick();
+            if tick - self.last_commit_cycle > self.timeout {
+                error!("[{tick}] watchdog timeout (last_commit_cycle={}", self.last_commit_cycle);
+                SimState::Timeout
+            } else {
+                //check dump end
+                #[cfg(feature = "trace")]
+                if self.dump_control.isend() {
+                    SimState::Finished
+                } else {
+                    #[cfg(feature = "trace")]
+                    self.dump_control.try_start(tick);
 
-    let tick = self.get_tick();
-    if tick - self.last_commit_cycle > self.timeout {
-      error!("[{tick}] watchdog timeout (last_commit_cycle={self.last_input_cycle})");
-      Sim_State::Timeout;
-    } else {
-      #[cfg(feature = "trace")]
-      if self.dump_control.isend() {
-        info!("[{tick}] run to dump end, exiting");
-        return Sim_State::Finished;
-      }
-
-      #[cfg(feature = "trace")]
-      self.dump_control.try_start(tick);
-
-      trace!("[{tick}] watchdog continue");
-      Sim_State::Running
-    }
+                    trace!("[{tick}] watchdog continue");
+                    SimState::Running
+                }
+                
+                #[cfg(not(feature = "trace"))]
+                {
+                    trace!("[{tick}] watchdog continue");
+                    SimState::Running
+                }
+            }
+        }
+    };
+    self.state as u8
   }
 
   #[cfg(feature = "difftest")]
@@ -284,7 +293,7 @@ impl Driver {
       println!("ref display:");
       self.refmodule.display();
       panic!("difftest mismatch!");
-      //self.state = Sim_State::Finished;
+      //self.state = SimState::Finished;
     }
   }
 }
@@ -299,6 +308,7 @@ pub struct DumpControl {
   dump_startd: bool,
 }
 
+#[cfg(feature = "trace")]
 impl DumpControl {
   fn new(svscope: SvScope, wave_path: &str, dump_start: u64, dump_end: u64) -> Self {
     Self {
@@ -312,18 +322,17 @@ impl DumpControl {
   }
 
   pub fn start(&mut self) {
-    if !self.dump_start {
-      use crate::dpi::dump_wave;
-      dump_wave(self.svscope, &self.wave_path);
-      self.dump_started = true;
+    if !self.dump_startd {
+      dpi::dump_wave(self.svscope, &self.wave_path);
+      self.dump_startd = true;
     }
   }
 
-  pub fn isend() -> bool {
-    self.dump_end != 0 && tick > self.dump_end
+  pub fn isend(&self) -> bool {
+    self.dump_end != 0 && get_time() > self.dump_end
   }
 
-  pub fn try_start(tick: u64) {
+  pub fn try_start(&mut self, tick: u64) {
     if tick >= self.dump_start {
       self.start();
     }

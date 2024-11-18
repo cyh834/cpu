@@ -84,27 +84,3 @@ impl NemuEvent {
   }
 }
 
-//map index to csr name
-pub(crate) fn csr_name(idx: usize) -> &'static str {
-  match idx {
-    0 => "mode",
-    1 => "mstatus",
-    2 => "sstatus",
-    3 => "mepc",
-    4 => "sepc",
-    5 => "mtval",
-    6 => "stval",
-    7 => "mtvec",
-    8 => "stvec",
-    9 => "mcause",
-    10 => "scause",
-    11 => "satp",
-    12 => "mip",
-    13 => "mie",
-    14 => "mscratch",
-    15 => "sscratch",
-    16 => "mideleg",
-    17 => "medeleg",
-    _ => unreachable!(),
-  }
-}

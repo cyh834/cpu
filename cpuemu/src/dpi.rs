@@ -7,8 +7,7 @@ use std::sync::Mutex;
 
 use crate::drive::Driver;
 use crate::plusarg::PlusArgMatcher;
-use crate::TestbenchArgs;
-use num_bigint::BigUint;
+use crate::SimArgs;
 use svdpi::sys::dpi::{svBitVecVal, svLogic};
 use svdpi::SvScope;
 

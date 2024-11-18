@@ -1,5 +1,4 @@
 use std::env;
-use std::process::Command;
 
 fn main() {
   if cfg!(feature = "difftest") {
