@@ -1,5 +1,7 @@
+pub(super) const DIFFTEST_TO_DUT: bool = false;
+pub(super) const DIFFTEST_TO_REF: bool = true;
 
-pub(crate) struct Nemu {
+pub struct Nemu {
 }
 
 impl Nemu {
@@ -48,8 +50,10 @@ extern "C" {
   pub fn difftest_load_flash(flash_bin: *mut (), f_size: usize);
 }
 
+
 #[repr(C, packed)]
-pub(crate) struct NemuEvent{
+#[derive(Clone, Copy)]
+pub struct NemuEvent{
   pub gpr : [u64; 32],
 
   pub csr : [u64; 18],
@@ -73,14 +77,6 @@ impl NemuEvent {
       csr : [0; 18],
       pc : 0,
     }
-  }
-
-  pub(crate) fn update(&mut self, dut_state: &NemuEvent) {
-    super::REF.exec(1);
-
-    let mut ref_state = NemuEvent::new();
-    super::REF.regcpy(&ref_state, DIFFTEST_TO_DUT);
-    assert_eq!(dut_state, ref_state);
   }
 }
 

@@ -3,10 +3,10 @@ use std::env;
 fn main() {
   if cfg!(feature = "difftest") {
     //nemu
-    println!(
-      "cargo::rustc-link-lib=static={}",
-      env::var("REF_MODULE").expect("REF_MODULE should be set")
-    );
+    //println!(
+    //  "cargo:rustc-link-lib=static={}",
+    //  env::var("REF_MODULE").unwrap_or_else(|_| "nemu".to_string())
+    //);
 
     // spike
     //println!(

@@ -1,6 +1,3 @@
-mod RefModule;
-use RefModule::*;
-
 use svdpi::{get_time, SvScope};
 use anyhow::Context;
 use elf::{
@@ -12,6 +9,14 @@ use std::collections::HashMap;
 use std::{fs, path::Path};
 use tracing::{debug, error, info, trace};
 use std::os::unix::fs::FileExt;
+
+use crate::{
+  bus::ShadowBus, 
+  dpi::{AxiReadPayload, RetireData, dump_wave}, 
+  get_t, 
+  ref_module::{RefModule, nemu::NemuEvent}, 
+  SimArgs,
+};
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -52,6 +57,8 @@ pub(crate) struct Driver {
   last_commit_cycle: u64,
 
   pub(crate) state: SimState,
+
+  pub(crate) dlen: u32,
 }
 
 impl Driver {
@@ -76,10 +83,10 @@ impl Driver {
       clock_flip_time: env!("CLOCK_FLIP_TIME").parse().unwrap(),
       last_commit_cycle: 0,
       state: SimState::Running,
+      dlen: 64,
     };
     self_
   }
-
   pub fn load_elf(path: &Path) -> anyhow::Result<(u64, ShadowBus, FunctionSymTab, RefModule)> {
     let file = fs::File::open(path).with_context(|| "reading ELF file")?;
     let mut elf: ElfStream<LittleEndian, _> =
@@ -100,8 +107,8 @@ impl Driver {
     debug!("ELF entry: 0x{:x}", elf.ehdr.e_entry);
     let mut mem = ShadowBus::new();
     let mut load_buffer = Vec::new();
-    #[cfg(feature = "difftest")]
-    let refmodule = RefModule::new();
+    //#[cfg(feature = "difftest")]
+    let mut refmodule = RefModule::new();
 
     elf.segments().iter().filter(|phdr| phdr.p_type == PT_LOAD).for_each(|phdr| {
       let vaddr: usize = phdr.p_vaddr.try_into().expect("fail converting vaddr(u64) to usize");
@@ -124,7 +131,7 @@ impl Driver {
       });
       mem.load_mem_seg(vaddr, load_buffer.as_mut_slice());
       #[cfg(feature = "difftest")]
-      refmodule.load_elf_seg(vaddr, load_buffer.as_mut_slice());
+      refmodule.load_mem_seg(vaddr, load_buffer.as_mut_slice());
     });
 
     // FIXME: now the symbol table doesn't contain any function value
@@ -240,6 +247,8 @@ impl Driver {
 
   #[cfg(feature = "difftest")]
   pub(crate) fn retire_instruction(&mut self, dut: &RetireData) {
+    use crate::ref_module::csr_name;
+  
     let ref_event = self.refmodule.step();
 
     if dut.skip {
@@ -249,31 +258,43 @@ impl Driver {
     }
 
     let mut mismatch = false;
+    let ref_pc = ref_event.pc;
+    let ref_gpr = ref_event.gpr;
+    let ref_csr = ref_event.csr;
+    let dut_pc = dut.pc;
+    let dut_gpr = dut.gpr;
+    let dut_csr = dut.csr;
+    let dut_inst = dut.inst;
+
     //check gpr
     for i in 0..32 {
-      if ref_event.gpr[i] != dut.gpr[i] {
+      let ref_gpr = ref_gpr[i];
+      let dut_gpr = dut_gpr[i];
+      if ref_gpr != dut_gpr {
         println!(
           "gpr{} mismatch! ref={:#x}, dut={:#x}",
-          i, ref_event.gpr[i], dut.gpr[i]
+          i, ref_gpr, dut_gpr
         );
         mismatch = true;
       }
     }
 
     //check pc
-    if ref_event.pc != dut.pc {
-      println!("pc mismatch! ref={:#x}, dut={:#x}", ref_event.pc, dut.pc);
+    if ref_pc != dut_pc {
+      println!("pc mismatch! ref={:#x}, dut={:#x}", ref_pc, dut_pc);
       mismatch = true;
     }
 
     //check csr
     for i in 0..18 {
-      if ref_event.csr[i] != dut.csr[i] {
+      let ref_csr = ref_csr[i];
+      let dut_csr = dut_csr[i];
+      if ref_csr != dut_csr {
         println!(
           "csr{} mismatch! ref={:#x}, dut={:#x}",
           csr_name(i),
-          ref_event.csr[i],
-          dut.csr[i]
+          ref_csr,
+          dut_csr
         );
         mismatch = true;
       }
@@ -281,13 +302,13 @@ impl Driver {
 
     if mismatch {
       println!("dut display:");
-      println!("pc:{:#x}", dut.pc);
-      println!("inst:{:#x}", dut.inst);
+      println!("pc:{:#x}", dut_pc);
+      println!("inst:{:#x}", dut_inst);
       for i in 0..32 {
-        println!("gpr{}:{:#x}", i, dut.gpr[i]);
+        println!("gpr{}:{:#x}", i, dut_gpr[i]);
       }
       for i in 0..18 {
-        println!("csr{}:{:#x}", csr_name(i), dut.csr[i]);
+        println!("csr{}:{:#x}", csr_name(i), dut_csr[i]);
       }
 
       println!("ref display:");
@@ -323,7 +344,7 @@ impl DumpControl {
 
   pub fn start(&mut self) {
     if !self.dump_startd {
-      dpi::dump_wave(self.svscope, &self.wave_path);
+      dump_wave(self.svscope, &self.wave_path);
       self.dump_startd = true;
     }
   }

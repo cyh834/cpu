@@ -1,5 +1,6 @@
+pub mod nemu;
 pub use nemu::*;
-enum{ DIFFTEST_TO_DUT, DIFFTEST_TO_REF };
+
 
 pub struct RefModule {
   module: Nemu,
@@ -8,7 +9,7 @@ pub struct RefModule {
 
 impl RefModule {
   pub fn new() -> Self {
-    let mut module = Nemu::new();
+    let module = Nemu::new();
     RefModule{module, event: NemuEvent::new()}
   }
 
@@ -24,8 +25,8 @@ impl RefModule {
     self.event
   }
 
-  pub fn override_event(&mut self, event: NemuEvent) {
-    self.module.regcpy(event.as_mut_ptr() as *mut (), DIFFTEST_TO_REF);
+  pub fn override_event(&mut self, mut event: NemuEvent) {
+    self.module.regcpy(&mut event as *mut NemuEvent as *mut (), DIFFTEST_TO_REF);
   }
 
   pub fn display(&self) {
@@ -33,7 +34,7 @@ impl RefModule {
   }
 }
 //map index to csr name
-pub(crate) fn csr_name(idx: usize) -> &'static str {
+pub fn csr_name(idx: usize) -> &'static str {
   match idx {
     0 => "mode",
     1 => "mstatus",

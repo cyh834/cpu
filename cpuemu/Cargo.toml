@@ -12,13 +12,15 @@ tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter", "ansi"] }
 anyhow = "1.0.79"
 xmas-elf = "0.9.1"
+elf = "0.7.4"
 hex = "0.4.3"
 
 [features]
 sv2023 = ["svdpi/sv2023"]
-trace = []
 vpi = ["svdpi/vpi"]
+trace = []
 difftest = []
+default = ["trace", "difftest"]
 
 [lib]
 crate-type = ["staticlib"]

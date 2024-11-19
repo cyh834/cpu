@@ -1,15 +1,15 @@
 #![allow(non_snake_case)]
 #![allow(unused_variables)]
 
-use std::cmp::max;
-use std::ffi::{c_char, CString};
+use std::ffi::{c_char, c_longlong};
+//use std::cmp::max;
 use std::sync::Mutex;
+use tracing::debug;
 
 use crate::drive::Driver;
 use crate::plusarg::PlusArgMatcher;
 use crate::SimArgs;
-use svdpi::sys::dpi::{svBitVecVal, svLogic};
-use svdpi::SvScope;
+use svdpi::{SvScope, get_time};
 
 pub type SvBitVecVal = u32;
 
@@ -109,11 +109,12 @@ unsafe extern "C" fn axi_write_loadStoreAXI(
   awlen={awlen}, awsize={awsize}, awburst={awburst}, awlock={awlock}, awcache={awcache}, \
   awprot={awprot}, awqos={awqos}, awregion={awregion})"
   );
-  TARGET.with(|driver| {
+  let mut driver = DPI_TARGET.lock().unwrap();
+  if let Some(driver) = driver.as_mut() {
     let data_width = if awsize <= 2 { 32 } else { 8 * (1 << awsize) } as usize;
     let (strobe, data) = load_from_payload(&payload, data_width, (driver.dlen / 8) as usize);
     driver.axi_write_load_store(awaddr as u32, awsize as u64, &strobe, data);
-  });
+  }
 }
 
 #[no_mangle]
@@ -144,10 +145,11 @@ unsafe extern "C" fn axi_read_loadStoreAXI(
   arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
   arprot={arprot}, arqos={arqos}, arregion={arregion})"
   );
-  TARGET.with(|driver| {
+  let mut driver = DPI_TARGET.lock().unwrap();
+  if let Some(driver) = driver.as_mut() {
     let response = driver.axi_read_load_store(araddr as u32, arsize as u64);
     fill_axi_read_payload(payload, driver.dlen, &response);
-  });
+  }
 }
 
 #[no_mangle]
@@ -178,10 +180,11 @@ unsafe extern "C" fn axi_read_instructionFetchAXI(
   arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
   arprot={arprot}, arqos={arqos}, arregion={arregion})"
   );
-  TARGET.with(|driver| {
+  let mut driver = DPI_TARGET.lock().unwrap();
+  if let Some(driver) = driver.as_mut() {
     let response = driver.axi_read_instruction_fetch(araddr as u32, arsize as u64);
     fill_axi_read_payload(payload, driver.dlen, &response);
-  });
+  };
 }
 
 #[no_mangle]
@@ -212,6 +215,7 @@ unsafe extern "C" fn sim_watchdog(reason: *mut c_char) {
 }
 
 #[no_mangle]
+#[cfg(feature = "difftest")]
 unsafe extern "C" fn retire_instruction(retire_src: *const SvBitVecVal) {
   let mut driver = DPI_TARGET.lock().unwrap();
   if let Some(driver) = driver.as_mut() {
@@ -243,6 +247,7 @@ mod dpi_export {
 
 #[cfg(feature = "trace")]
 pub(crate) fn dump_wave(scope: SvScope, path: &str) {
+  use std::ffi::CString;
   use svdpi::set_scope;
 
   let path_cstring = CString::new(path).unwrap();
