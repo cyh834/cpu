@@ -18,9 +18,9 @@ impl<const SIZE: usize> ShadowDevice for MemDevice<SIZE> {
     self.mem[start..end].to_vec()
   }
 
-  fn write_mem(&mut self, addr: usize, data: u8) {
-    self.mem[addr] = data;
-  }
+  //fn write_mem(&mut self, addr: usize, data: u8) {
+  //  self.mem[addr] = data;
+  //}
 
   fn write_mem_chunk(&mut self, addr: usize, size: usize, strobe: Option<&[bool]>, data: &[u8]) {
     // NOTE: addr & size alignment check already done in ShadowBus, and ELF load can be unaligned anyway.

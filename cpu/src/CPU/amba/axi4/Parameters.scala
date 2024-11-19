@@ -26,8 +26,8 @@ case class AXI4BundleParameter(
 
 object AXI4 {
   def apply(parameter: AXI4BundleParameter) = {
-    if (parameter.isRW) new AXI4RWIrrevocable(parameter)
-    else new AXI4ROIrrevocable(parameter)
+    if (parameter.isRO) new AXI4ROIrrevocable(parameter)
+    else new AXI4RWIrrevocable(parameter)
   }
 }
 

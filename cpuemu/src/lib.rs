@@ -27,8 +27,8 @@ pub(crate) struct SimArgs {
   pub log_level: String,
 
   // ISA config, no use
-  pub set: String,
-  pub lvl: String,
+  //pub set: String,
+  //pub lvl: String,
 
   #[cfg(feature = "trace")]
   pub wave_path: String,
@@ -59,8 +59,8 @@ impl SimArgs {
       elf_file: matcher.match_("elf-file").into(),
       log_file: matcher.try_match("log-file").map(PathBuf::from),
       log_level: matcher.try_match("log-level").unwrap_or("info").into(),
-      set: matcher.try_match("set").unwrap_or("rv64imafdc").into(),
-      lvl: matcher.try_match("lvl").unwrap_or("u").into(),
+      //set: matcher.try_match("set").unwrap_or("rv64imafdc").into(),
+      //lvl: matcher.try_match("lvl").unwrap_or("u").into(),
       #[cfg(feature = "trace")]
       dump_start: matcher.try_match("dump-start").unwrap_or("0").parse().unwrap(),
       #[cfg(feature = "trace")]

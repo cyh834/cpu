@@ -45,7 +45,7 @@ pub(crate) struct Driver {
 
   bus: ShadowBus,
 
-  scope: SvScope,
+  //scope: SvScope,
 
   #[cfg(feature = "trace")]
   dump_control: DumpControl,
@@ -74,7 +74,7 @@ impl Driver {
       #[cfg(feature = "difftest")]
       refmodule,
       bus: shadow_bus,
-      scope,
+      //scope,
       #[cfg(feature = "trace")]
       dump_control: DumpControl::new(scope, &args.wave_path, args.dump_start, args.dump_end),
       e_entry,

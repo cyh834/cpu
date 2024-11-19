@@ -10,7 +10,7 @@ trait ShadowDevice: Send + Sync {
   /// addr: offset respect to the base of this device
   fn read_mem(&self, addr: usize, size: usize) -> Vec<u8>;
   /// addr: offset respect to the base of this device
-  fn write_mem(&mut self, addr: usize, data: u8);
+  //fn write_mem(&mut self, addr: usize, data: u8);
   /// addr: offset respect to the base of this device
   /// strobe: signals which element in data is valid, None = all valid
   fn write_mem_chunk(&mut self, addr: usize, size: usize, strobe: Option<&[bool]>, data: &[u8]);

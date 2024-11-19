@@ -28,7 +28,7 @@ in
   tb-rtl = scope.callPackage ./rtl.nix { mlirbc = scope.tb-mlirbc; };
   tb-dpi-lib = scope.callPackage ./dpi-lib.nix {
     inherit dpiLibName;
-    ref-module = "${libnemu}";
+    ref-module = libnemu;
   };
 
   verilated = scope.callPackage ./verilated.nix {
