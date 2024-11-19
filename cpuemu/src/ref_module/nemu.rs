@@ -30,8 +30,8 @@ impl Nemu {
     unsafe { difftest_display() }
   }
 
-  pub fn raise_intr(&self, NO: u64) {
-    unsafe { difftest_raise_intr(NO) }
+  pub fn raise_intr(&self, no: u64) {
+    unsafe { difftest_raise_intr(no) }
   }
 
   pub fn load_flash(&self, flash_bin: *mut (), f_size: usize) {

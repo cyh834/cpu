@@ -9,7 +9,7 @@ use tracing::debug;
 use crate::drive::Driver;
 use crate::plusarg::PlusArgMatcher;
 use crate::SimArgs;
-use svdpi::{SvScope, get_time};
+use svdpi::SvScope;
 
 pub type SvBitVecVal = u32;
 

@@ -70,7 +70,7 @@ impl Driver {
     let (e_entry, shadow_bus, _fn_sym_tab, refmodule) =
       Self::load_elf(&args.elf_file).expect("fail creating simulator");
 
-    let mut self_ = Self {
+    let self_ = Self {
       #[cfg(feature = "difftest")]
       refmodule,
       bus: shadow_bus,
