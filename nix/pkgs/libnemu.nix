@@ -13,7 +13,7 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
     mkdir -p $out/lib
-    cp $src $out/lib/libriscv64-nemu-interpreter.so
+    cp $src $out/lib/libnemu.so
     runHook postInstall
   '';
 

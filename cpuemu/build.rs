@@ -3,7 +3,7 @@ use std::env;
 fn main() {
   if cfg!(feature = "difftest") {
     println!("cargo::rustc-link-search=native={}", env::var("REF_MODULE_LIB_DIR").expect("REF_MODULE_LIB_DIR should be set"));
-    println!("cargo::rustc-link-lib=dylib=riscv64-nemu-interpreter");
+    println!("cargo::rustc-link-lib=dylib=nemu");
 
     println!("cargo::rerun-if-env-changed=REF_MODULE_LIB");
     println!("cargo::rustc-link-lib=stdc++");

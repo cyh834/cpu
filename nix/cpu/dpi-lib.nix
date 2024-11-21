@@ -13,7 +13,6 @@
 , ref-module-interfaces ? null
 , timescale ? 1
 , stdenv
-, libnemu
 }:
 
 rustPlatform.buildRustPackage rec {
@@ -28,10 +27,9 @@ rustPlatform.buildRustPackage rec {
     ++ lib.optionals vpi [ "vpi" ] ++ lib.optionals enable-trace [ "trace" ]
     ++ lib.optionals difftest [ "difftest" ];
   
-  buildInputs = [ libnemu ref-module ];
 
   env = {
-    REF_MODULE_LIB_DIR = "${libnemu}/lib";
+    REF_MODULE_LIB_DIR = lib.optionalString (ref-module != null) "${ref-module}/lib";
     ## REF_MODULE_INTERFACES_LIB_DIR = lib.optionalString (ref-module-interfaces != null) "${ref-module-interfaces}/lib";
     DESIGN_TIMEOUT = tbConfig.timeout;
     CLOCK_FLIP_TIME = tbConfig.testVerbatimParameter.clockFlipTick * timescale;
