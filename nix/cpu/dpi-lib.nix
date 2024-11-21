@@ -28,6 +28,8 @@ rustPlatform.buildRustPackage rec {
     ++ lib.optionals vpi [ "vpi" ] ++ lib.optionals enable-trace [ "trace" ]
     ++ lib.optionals difftest [ "difftest" ];
   
+  buildInputs = [ libnemu ];
+
   env = {
     REF_MODULE_LIB_DIR = lib.optionalString (ref-module != null) "${ref-module}/lib";
     ## REF_MODULE_INTERFACES_LIB_DIR = lib.optionalString (ref-module-interfaces != null) "${ref-module-interfaces}/lib";

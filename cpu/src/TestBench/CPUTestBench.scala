@@ -8,8 +8,8 @@ import chisel3.ltl.{AssertProperty, CoverProperty, Delay, Sequence}
 import chisel3.properties.{AnyClassType, Class, Property}
 import chisel3.util.circt.dpi.{
   RawClockedNonVoidFunctionCall,
-  RawUnclockedNonVoidFunctionCall,
-  RawClockedVoidFunctionCall
+  RawClockedVoidFunctionCall,
+  RawUnclockedNonVoidFunctionCall
 }
 import chisel3.util._
 
@@ -79,19 +79,22 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
   }
 
   val axi4vip0 = new AXI4VIP(parameter.cpuParameter.instructionFetchParameter)
-  axi4vip0.clock := implicitClock
-  axi4vip0.reset := implicitReset
+  axi4vip0.io.clock := implicitClock
+  axi4vip0.io.reset := implicitReset
 
   val axi4vip1 = new AXI4VIP(parameter.cpuParameter.loadStoreAXIParameter)
-  axi4vip1.clock := implicitClock
-  axi4vip1.reset := implicitReset
+  axi4vip1.io.clock := implicitClock
+  axi4vip1.io.reset := implicitReset
 
   dut.io.imem <> axi4vip0.io.axi
   dut.io.dmem <> axi4vip1.io.axi
 
   val CPUProbe = probe.read(dut.io.cpuProbe)
-  RawClockedVoidFunctionCall("retire_instruction")(implicitClock, CPUProbe.backendProbe.retire.valid, CPUProbe.backendProbe.retire.bits)
-
+  RawClockedVoidFunctionCall("retire_instruction")(
+    implicitClock,
+    CPUProbe.backendProbe.retire.valid,
+    CPUProbe.backendProbe.retire.bits
+  )
 
 }
 
@@ -101,7 +104,7 @@ object TestVerbatimParameter {
 }
 
 case class TestVerbatimParameter(
-  useAsyncReset:    Boolean,
+  useAsyncReset:     Boolean,
   initFunctionName:  String,
   finalFunctionName: String,
   dumpFunctionName:  String,
@@ -111,7 +114,7 @@ case class TestVerbatimParameter(
 
 @instantiable
 class TestVerbatimOM(parameter: TestVerbatimParameter) extends Class {
-  val useAsyncReset:    Property[Boolean] = IO(Output(Property[Boolean]()))
+  val useAsyncReset:     Property[Boolean] = IO(Output(Property[Boolean]()))
   val initFunctionName:  Property[String] = IO(Output(Property[String]()))
   val finalFunctionName: Property[String] = IO(Output(Property[String]()))
   val dumpFunctionName:  Property[String] = IO(Output(Property[String]()))
@@ -121,7 +124,7 @@ class TestVerbatimOM(parameter: TestVerbatimParameter) extends Class {
   @public
   val cpuIn = IO(Input(Property[AnyClassType]()))
   cpu := cpuIn
-  useAsyncReset    := Property(parameter.useAsyncReset)
+  useAsyncReset := Property(parameter.useAsyncReset)
   initFunctionName := Property(parameter.initFunctionName)
   finalFunctionName := Property(parameter.finalFunctionName)
   dumpFunctionName := Property(parameter.dumpFunctionName)
@@ -133,8 +136,8 @@ class TestVerbatimOM(parameter: TestVerbatimParameter) extends Class {
 class TestVerbatimInterface(parameter: TestVerbatimParameter) extends Bundle {
   val clock: Clock = Output(Clock())
   val reset: Reset = Output(
-      if (parameter.useAsyncReset) AsyncReset() else Bool()
-    )
+    if (parameter.useAsyncReset) AsyncReset() else Bool()
+  )
 }
 
 @instantiable
@@ -174,4 +177,3 @@ class TestVerbatim(parameter: TestVerbatimParameter)
        |""".stripMargin
   )
 }
-
