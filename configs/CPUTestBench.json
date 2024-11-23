@@ -13,7 +13,8 @@
             "rv_m",
             "rv_a",
             "rv_c"
-        ]
+        ],
+        "useAsyncReset": false
     },
     "timeout": 70000,
     "testSize": 100

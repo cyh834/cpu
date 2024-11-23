@@ -34,31 +34,28 @@ unsafe fn fill_axi_read_payload(dst: *mut SvBitVecVal, dlen: u32, payload: &AxiR
   write_to_pointer(dst as *mut u8, &payload.data);
 }
 
-unsafe fn load_from_payload(
-  payload: &*const SvBitVecVal,
-  data_width: usize,
-  size: usize,
-) -> (Vec<bool>, &[u8]) {
-  let src = *payload as *mut u8;
-  let data_width_in_byte = std::cmp::max(size, 4);
-  let strb_width_per_byte = if data_width < 64 { 4 } else { 8 };
-  let strb_width_in_byte = size.div_ceil(strb_width_per_byte);
-
+unsafe fn load_from_payload<'a>(
+  payload: *const SvBitVecVal,
+  data_width: u32,
+) -> (Vec<bool>, &'a [u8]) {
+  let src = payload as *mut u8;
+  let data_width_in_byte = (data_width / 8) as usize;
+  let strb_width_in_byte = data_width_in_byte.div_ceil(8); // ceil divide by 8 to get byte width
   let payload_size_in_byte = strb_width_in_byte + data_width_in_byte; // data width in byte
   let byte_vec = std::slice::from_raw_parts(src, payload_size_in_byte);
   let strobe = &byte_vec[0..strb_width_in_byte];
   let data = &byte_vec[strb_width_in_byte..];
 
+  let strb_width_in_bit = std::cmp::min(8, data_width_in_byte);
   let masks: Vec<bool> = strobe
     .into_iter()
     .flat_map(|strb| {
-      let mask: Vec<bool> = (0..strb_width_per_byte).map(|i| (strb & (1 << i)) != 0).collect();
+      let mask: Vec<bool> = (0..strb_width_in_bit).map(|i| (strb & (1 << i)) != 0).collect();
       mask
     })
     .collect();
-  assert_eq!(
-    masks.len(),
-    data.len(),
+  assert!(
+    masks.len() == data.len(),
     "strobe bit width is not aligned with data byte width"
   );
 
@@ -90,7 +87,7 @@ pub(crate) struct RetireData {
 // dpi functions
 //----------------------
 #[no_mangle]
-unsafe extern "C" fn axi_write_loadStoreAXI(
+unsafe extern "C" fn axi_write(
   channel_id: c_longlong,
   awid: c_longlong,
   awaddr: c_longlong,
@@ -105,20 +102,19 @@ unsafe extern "C" fn axi_write_loadStoreAXI(
   payload: *const SvBitVecVal,
 ) {
   debug!(
-    "axi_write_loadStore (channel_id={channel_id}, awid={awid}, awaddr={awaddr:#x}, \
+    "axi_write (channel_id={channel_id}, awid={awid}, awaddr={awaddr:#x}, \
   awlen={awlen}, awsize={awsize}, awburst={awburst}, awlock={awlock}, awcache={awcache}, \
   awprot={awprot}, awqos={awqos}, awregion={awregion})"
   );
   let mut driver = DPI_TARGET.lock().unwrap();
   if let Some(driver) = driver.as_mut() {
-    let data_width = if awsize <= 2 { 32 } else { 8 * (1 << awsize) } as usize;
-    let (strobe, data) = load_from_payload(&payload, data_width, (driver.dlen / 8) as usize);
-    driver.axi_write_load_store(awaddr as u32, awsize as u64, &strobe, data);
+    let (strobe, data) = load_from_payload(payload, driver.dlen);
+    driver.axi_write(awaddr as u32, awsize as u64, &strobe, data);
   }
 }
 
 #[no_mangle]
-unsafe extern "C" fn axi_read_loadStoreAXI(
+unsafe extern "C" fn axi_read(
   channel_id: c_longlong,
   arid: c_longlong,
   araddr: c_longlong,
@@ -132,59 +128,16 @@ unsafe extern "C" fn axi_read_loadStoreAXI(
   arregion: c_longlong,
   payload: *mut SvBitVecVal,
 ) {
-  // chisel use sync reset, registers are not reset at time=0
-  // to avoid DPI trace (especially in verilator), we filter it here
-  if svdpi::get_time() == 0 {
-    debug!("axi_read_loadStoreAXI (ignored at time zero)");
-    // TODO: better to fill zero to payload, but maintain the correct length for payload is too messy
-    return;
-  }
-
   debug!(
-    "axi_read_loadStoreAXI (channel_id={channel_id}, arid={arid}, araddr={araddr:#x}, \
+    "axi_read (channel_id={channel_id}, arid={arid}, araddr={araddr:#x}, \
   arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
   arprot={arprot}, arqos={arqos}, arregion={arregion})"
   );
   let mut driver = DPI_TARGET.lock().unwrap();
   if let Some(driver) = driver.as_mut() {
-    let response = driver.axi_read_load_store(araddr as u32, arsize as u64);
+    let response = driver.axi_read(araddr as u32, arsize as u64);
     fill_axi_read_payload(payload, driver.dlen, &response);
   }
-}
-
-#[no_mangle]
-unsafe extern "C" fn axi_read_instructionFetchAXI(
-  channel_id: c_longlong,
-  arid: c_longlong,
-  araddr: c_longlong,
-  arlen: c_longlong,
-  arsize: c_longlong,
-  arburst: c_longlong,
-  arlock: c_longlong,
-  arcache: c_longlong,
-  arprot: c_longlong,
-  arqos: c_longlong,
-  arregion: c_longlong,
-  payload: *mut SvBitVecVal,
-) {
-  // chisel use sync reset, registers are not reset at time=0
-  // to avoid DPI trace (especially in verilator), we filter it here
-  if svdpi::get_time() == 0 {
-    debug!("axi_read_instructionFetchAXI (ignored at time zero)");
-    // TODO: better to fill zero to payload, but maintain the correct length for payload is too messy
-    return;
-  }
-
-  debug!(
-    "axi_read_instructionFetchAXI (channel_id={channel_id}, arid={arid}, araddr={araddr:#x}, \
-  arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
-  arprot={arprot}, arqos={arqos}, arregion={arregion})"
-  );
-  let mut driver = DPI_TARGET.lock().unwrap();
-  if let Some(driver) = driver.as_mut() {
-    let response = driver.axi_read_instruction_fetch(araddr as u32, arsize as u64);
-    fill_axi_read_payload(payload, driver.dlen, &response);
-  };
 }
 
 #[no_mangle]

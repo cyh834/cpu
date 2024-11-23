@@ -26,7 +26,7 @@ rustPlatform.buildRustPackage rec {
   buildFeatures = lib.optionals sv2023 [ "sv2023" ]
     ++ lib.optionals vpi [ "vpi" ] ++ lib.optionals enable-trace [ "trace" ]
     ++ lib.optionals difftest [ "difftest" ];
-  
+
 
   env = {
     REF_MODULE_LIB_DIR = lib.optionalString (ref-module != null) "${ref-module}/lib";

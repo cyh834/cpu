@@ -9,7 +9,7 @@ stdenv.mkDerivation {
     sha256 = "sha256-A8b/3GTcWZjKXpo4xQ4jceyyVAENDw23EpI6OejuTiM=";
   };
   dontUnpack = true;
-  
+
   installPhase = ''
     runHook preInstall
     mkdir -p $out/lib

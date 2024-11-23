@@ -19,7 +19,7 @@ class BackendInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new DecodeIO(parameter.iduParameter)))
-  val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
+  val dmem = AXI4(parameter.loadStoreAXIParameter)
   val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
   val flush = Input(UInt(2.W))
   val probe = Output(Probe(new BackendProbe(parameter), layers.Verification))

@@ -52,6 +52,8 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
     with ImplicitReset {
   override protected def implicitClock: Clock = verbatim.io.clock
   override protected def implicitReset: Reset = verbatim.io.reset
+  layer.enable(layers.Verification)
+
   // Instantiate Drivers
   val verbatim: Instance[TestVerbatim] = Instantiate(
     new TestVerbatim(parameter.testVerbatimParameter)
@@ -65,6 +67,7 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
 
   dut.io.clock := implicitClock
   dut.io.reset := implicitReset
+  dut.io.intr := 0.U
 
   // Simulation Logic
   val simulationTime: UInt = RegInit(0.U(64.W))
@@ -78,24 +81,47 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
     stop(cf"""{"event":"SimulationStop","reason": ${watchdogCode},"cycle":${simulationTime}}\n""")
   }
 
-  val axi4vip0 = new AXI4VIP(parameter.cpuParameter.instructionFetchParameter)
-  axi4vip0.io.clock := implicitClock
-  axi4vip0.io.reset := implicitReset
+  // AXI4VIP
+  val instructionFetchAXI = Module(
+    new AXI4VIP(
+      AXI4VIPParameter(
+        name = "instructionFetchAXI",
+        axiParameter = parameter.cpuParameter.instructionFetchParameter,
+        outstanding = 4,
+        readPayloadSize = 1,
+        writePayloadSize = 1
+      )
+    )
+  )
+  instructionFetchAXI.io.clock := implicitClock
+  instructionFetchAXI.io.reset := implicitReset
+  instructionFetchAXI.io.channelId := 0.U
 
-  val axi4vip1 = new AXI4VIP(parameter.cpuParameter.loadStoreAXIParameter)
-  axi4vip1.io.clock := implicitClock
-  axi4vip1.io.reset := implicitReset
+  val loadStoreAXI = Module(
+    new AXI4VIP(
+      AXI4VIPParameter(
+        name = "loadStoreAXI",
+        axiParameter = parameter.cpuParameter.loadStoreAXIParameter,
+        outstanding = 4,
+        readPayloadSize = 1,
+        writePayloadSize = 1
+      )
+    )
+  )
+  loadStoreAXI.io.clock := implicitClock
+  loadStoreAXI.io.reset := implicitReset
+  loadStoreAXI.io.channelId := 1.U
 
-  dut.io.imem <> axi4vip0.io.axi
-  dut.io.dmem <> axi4vip1.io.axi
+  instructionFetchAXI.io.channel <> dut.io.imem
+  loadStoreAXI.io.channel <> dut.io.dmem
 
+  // Verification Logic
   val CPUProbe = probe.read(dut.io.cpuProbe)
   RawClockedVoidFunctionCall("retire_instruction")(
     implicitClock,
     CPUProbe.backendProbe.retire.valid,
     CPUProbe.backendProbe.retire.bits
   )
-
 }
 
 object TestVerbatimParameter {

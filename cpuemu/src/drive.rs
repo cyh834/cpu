@@ -12,11 +12,13 @@ use std::os::unix::fs::FileExt;
 
 use crate::{
   bus::ShadowBus, 
-  dpi::{AxiReadPayload, RetireData, dump_wave}, 
+  dpi::{AxiReadPayload, RetireData}, 
   get_t, 
   ref_module::{RefModule, nemu::NemuEvent}, 
   SimArgs,
 };
+#[cfg(feature = "trace")]
+use crate::dpi::dump_wave;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -159,20 +161,19 @@ impl Driver {
     Ok((elf.ehdr.e_entry, mem, fn_sym_tab, refmodule))
   }
 
-  pub(crate) fn axi_read_load_store(&mut self, addr: u32, arsize: u64) -> AxiReadPayload {
+  pub(crate) fn axi_read(&mut self, addr: u32, arsize: u64) -> AxiReadPayload {
     let size = 1 << arsize;
-    let bus_size = if size == 32 { 32 } else { 4 };
-    let data = self.bus.read_mem_axi(addr, size, bus_size);
+    let data = self.bus.read_mem_axi(addr, size, self.dlen / 8);
     let data_hex = hex::encode(&data);
     self.last_commit_cycle = get_t();
     trace!(
-      "[{}] axi_read_load_store (addr={addr:#x}, size={size}, data={data_hex})",
+      "[{}] axi_read (addr={addr:#x}, size={size}, data={data_hex})",
       get_t()
     );
     AxiReadPayload { data }
   }
 
-  pub(crate) fn axi_write_load_store(
+  pub(crate) fn axi_write(
     &mut self,
     addr: u32,
     awsize: u64,
@@ -180,13 +181,12 @@ impl Driver {
     data: &[u8],
   ) {
     let size = 1 << awsize;
-    let bus_size = if size == 32 { 32 } else { 4 };
-    self.bus.write_mem_axi(addr, size, bus_size, strobe, data);
+    self.bus.write_mem_axi(addr, size, self.dlen / 8, strobe, data);
     let data_hex = hex::encode(data);
     self.last_commit_cycle = get_t();
 
     trace!(
-      "[{}] axi_write_load_store (addr={addr:#x}, size={size}, data={data_hex})",
+      "[{}] axi_write (addr={addr:#x}, size={size}, data={data_hex})",
       get_t()
     );
 
@@ -198,17 +198,6 @@ impl Driver {
         self.state = SimState::Finished;
       }
     }
-  }
-
-  pub(crate) fn axi_read_instruction_fetch(&mut self, addr: u32, arsize: u64) -> AxiReadPayload {
-    let size = 1 << arsize;
-    let data = self.bus.read_mem_axi(addr, size, 32);
-    let data_hex = hex::encode(&data);
-    trace!(
-      "[{}] axi_read_instruction_fetch (addr={addr:#x}, size={size}, data={data_hex})",
-      get_t()
-    );
-    AxiReadPayload { data }
   }
 
   pub(crate) fn watchdog(&mut self) -> u8 {
