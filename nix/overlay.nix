@@ -38,4 +38,6 @@ final: prev: {
   libnemu = final.callPackage ./pkgs/libnemu.nix { };
 
   cpu = final.callPackage ./cpu { };
+
+  nexus-am = final.callPackage ./test/nexus-am.nix { };
 }

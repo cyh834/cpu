@@ -22,37 +22,41 @@ struct ShadowBusDevice {
   device: Box<dyn ShadowDevice>,
 }
 
-const MAX_DEVICES: usize = 3;
+const MAX_DEVICES: usize = 1;
 
 pub(crate) struct ShadowBus {
   devices: [ShadowBusDevice; MAX_DEVICES],
 }
 
 impl ShadowBus {
-  /// Initiate the devices on the bus as specified in `tests/t1.ld`
-  /// NOTE: For some reason DDR is not aligned in the address space
+  /// Initiate the devices on the bus as specified in `nexus-am`
   pub fn new() -> Self {
-    const DDR_SIZE: usize = 0x80000000;
-    const SCALAR_SIZE: usize = 0x20000000;
-    const SRAM_SIZE: usize = 0x00400000;
+    //const SCALAR_SIZE: usize = 0x20000000;
+    //const DDR_SIZE: usize = 0x80000000;
+    //const SRAM_SIZE: usize = 0x00400000;
 
     Self {
       devices: [
         ShadowBusDevice {
-          base: 0x20000000,
-          size: SCALAR_SIZE,
-          device: MemDevice::<SCALAR_SIZE>::new(),
-        },
-        ShadowBusDevice {
-          base: 0x40000000,
-          size: DDR_SIZE,
-          device: MemDevice::<DDR_SIZE>::new(),
-        },
-        ShadowBusDevice {
-          base: 0xc0000000,
-          size: SRAM_SIZE,
-          device: MemDevice::<SRAM_SIZE>::new(),
-        },
+          base: 0x80000000,
+          size: 0x08000000,
+          device: MemDevice::<0x08000000>::new(),
+        }
+        //ShadowBusDevice {
+        //  base: 0x20000000,
+        //  size: SCALAR_SIZE,
+        //  device: MemDevice::<SCALAR_SIZE>::new(),
+        //},
+        //ShadowBusDevice {
+        //  base: 0x40000000,
+        //  size: DDR_SIZE,
+        //  device: MemDevice::<DDR_SIZE>::new(),
+        //},
+        //ShadowBusDevice {
+        //  base: 0xc0000000,
+        //  size: SRAM_SIZE,
+        //  device: MemDevice::<SRAM_SIZE>::new(),
+        //},
       ],
     }
   }
