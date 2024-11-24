@@ -16,5 +16,4 @@ stdenv.mkDerivation {
     cp $src $out/lib/libnemu.so
     runHook postInstall
   '';
-
 }

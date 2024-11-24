@@ -32,7 +32,6 @@
 nix build '.#cpu.rtl'
 ```
 
-### TODO
 使用Verilator仿真
 ```bash
 nix run '.#cpu.verilated'
@@ -52,6 +51,8 @@ nix run '.#cpu.vcs' --impure
 ```bash
 nix run '.#cpu.vcs-trace' --impure
 ```
+
+### TODO
 
 形式验证
 ```bash

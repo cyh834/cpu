@@ -73,10 +73,10 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
   val simulationTime: UInt = RegInit(0.U(64.W))
   simulationTime := simulationTime + 1.U
   // For each timeout ticks, check it
-  val (_, callWatchdog) = Counter(true.B, parameter.timeout / 2)
+  //val (_, callWatchdog) = Counter(true.B, parameter.timeout / 2)
   // should be in sync with the enum in driver.rs
   import State._
-  val watchdogCode = RawUnclockedNonVoidFunctionCall("cpu_watchdog", UInt(8.W))(callWatchdog)
+  val watchdogCode = RawUnclockedNonVoidFunctionCall("sim_watchdog", UInt(8.W))(true.B)
   when(watchdogCode =/= Running.asUInt) {
     stop(cf"""{"event":"SimulationStop","reason": ${watchdogCode},"cycle":${simulationTime}}\n""")
   }

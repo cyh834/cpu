@@ -206,6 +206,7 @@ pub(crate) fn dump_wave(scope: SvScope, path: &str) {
   let path_cstring = CString::new(path).unwrap();
 
   set_scope(scope);
+  println!("start dump wave");
   unsafe {
     dpi_export::dump_wave(path_cstring.as_ptr());
   }

@@ -72,7 +72,7 @@ impl Driver {
     let (e_entry, shadow_bus, _fn_sym_tab, refmodule) =
       Self::load_elf(&args.elf_file).expect("fail creating simulator");
 
-    let self_ = Self {
+    let mut self_ = Self {
       #[cfg(feature = "difftest")]
       refmodule,
       bus: shadow_bus,
@@ -87,6 +87,8 @@ impl Driver {
       state: SimState::Running,
       dlen: 64,
     };
+    #[cfg(feature = "trace")]
+    self_.dump_control.start();
     self_
   }
   pub fn load_elf(path: &Path) -> anyhow::Result<(u64, ShadowBus, FunctionSymTab, RefModule)> {
@@ -315,7 +317,7 @@ pub struct DumpControl {
   dump_start: u64,
   dump_end: u64,
 
-  dump_startd: bool,
+  dump_started: bool,
 }
 
 #[cfg(feature = "trace")]
@@ -327,14 +329,14 @@ impl DumpControl {
       dump_start,
       dump_end,
 
-      dump_startd: false,
+      dump_started: false,
     }
   }
 
   pub fn start(&mut self) {
-    if !self.dump_startd {
+    if !self.dump_started {
       dump_wave(self.svscope, &self.wave_path);
-      self.dump_startd = true;
+      self.dump_started = true;
     }
   }
 

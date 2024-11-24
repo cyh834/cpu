@@ -1,8 +1,8 @@
 {
     "testVerbatimParameter": {
         "useAsyncReset": false,
-        "initFunctionName": "cpu_init",
-        "finalFunctionName": "cpu_final",
+        "initFunctionName": "sim_init",
+        "finalFunctionName": "sim_final",
         "dumpFunctionName": "dump_wave",
         "clockFlipTick": 1,
         "resetFlipTick": 100

@@ -6,6 +6,7 @@ pub struct Nemu {
 
 impl Nemu {
   pub fn new() -> Self {
+    #[cfg(feature = "difftest")]
     unsafe { difftest_init() }
     Nemu{}
   }
@@ -39,6 +40,7 @@ impl Nemu {
   }
 }
 
+#[link(name = "nemu")]
 extern "C" {
   pub fn difftest_init();
   pub fn difftest_regcpy(dut: *mut (), direction: bool);
