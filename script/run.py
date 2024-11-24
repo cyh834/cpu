@@ -55,7 +55,7 @@ def nix_run(elfFilePath: str):
     has_trace = "--trace" in sys.argv
     if has_trace:
         attr = "\".#cpu.verilated-trace\""
-        extra_args = ["+dump-start=0", "+dump-end=1000000", "+wave-path=wave"]
+        extra_args = ["+dump-start=0", "+dump-end=1000000", "+wave-path=trace"]
     else:
         attr = "\".#cpu.verilated\""
 

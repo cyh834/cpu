@@ -33,9 +33,9 @@ pub type FunctionSymTab = HashMap<u64, FunctionSym>;
 #[repr(u8)]
 #[derive(Copy, Clone)]
 pub enum SimState {
-    Finished = 0,
+    Running = 0,
+    Finished,
     Timeout,
-    Running,
 }
 
 const EXIT_POS: u32 = 0x4000_0000;

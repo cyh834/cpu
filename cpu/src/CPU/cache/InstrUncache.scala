@@ -43,7 +43,7 @@ class InstrUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter)
   }
   val id = 0.U
 
-  io.mem.ar.valid := io.ifu.req.valid && !io.flush
+  io.mem.ar.valid := io.ifu.req.valid && !io.flush && !io.reset.asBool
   io.ifu.req.ready := io.mem.ar.ready
 
   io.mem.ar.bits.addr := io.ifu.req.bits.addr

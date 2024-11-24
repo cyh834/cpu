@@ -34,13 +34,15 @@ nix build '.#cpu.rtl'
 
 使用Verilator仿真
 ```bash
-nix run '.#cpu.verilated'
+nix develop "#test" -c python script/run.py nexus-am/dummy
 ```
 
 使用Verilator生成波形
 ```bash
-nix run '.#cpu.verilated-trace'
+nix develop "#test" -c python script/run.py nexus-am/dummy --trace
 ```
+
+### TODO
 
 使用VCS仿真
 ```bash
@@ -52,7 +54,6 @@ nix run '.#cpu.vcs' --impure
 nix run '.#cpu.vcs-trace' --impure
 ```
 
-### TODO
 
 形式验证
 ```bash
