@@ -62,7 +62,16 @@ class Backend(val parameter: CPUParameter)
   layer.block(layers.Verification) {
     val probeWire: BackendProbe = Wire(new BackendProbe(parameter))
     define(io.probe, ProbeValue(probeWire))
-    probeWire.retire := 0.U.asTypeOf(probeWire.retire)
+    probeWire.retire.valid := RegNext(wbu.io.rfwrite(0).wen)
+    probeWire.retire.bits.inst := RegNext(wbu.io.in.bits.instr)
+    probeWire.retire.bits.pc := RegNext(wbu.io.in.bits.pc)
+    probeWire.retire.bits.gpr := probe.read(regfile.io.probe).gpr
+    probeWire.retire.bits.csr := 0.U.asTypeOf(probeWire.retire.bits.csr)
+    probeWire.retire.bits.skip := false.B
+    probeWire.retire.bits.is_rvc := false.B
+    probeWire.retire.bits.rfwen := true.B
+    probeWire.retire.bits.is_load := false.B
+    probeWire.retire.bits.is_store := false.B
   }
 
   isu.io.clock := io.clock

@@ -75,15 +75,15 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
   val NumSrc:         Int = 2
 
   val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
-    addrWidth = XLEN,
-    dataWidth = 64,
+    addrWidth = PAddrBits,
+    dataWidth = DataBits,
     idWidth = 1,
     isRO = true
   )
 
   val loadStoreAXIParameter: AXI4BundleParameter = AXI4BundleParameter(
-    addrWidth = XLEN,
-    dataWidth = 64,
+    addrWidth = PAddrBits,
+    dataWidth = DataBits,
     idWidth = 1,
     isRO = false
   )
@@ -119,7 +119,8 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
   val bpuParameter: BPUParameter = BPUParameter(
     xlen = XLEN,
     vaddrBits = VAddrBits,
-    useAsyncReset = useAsyncReset
+    useAsyncReset = useAsyncReset,
+    resetVector = ResetVector
   )
 }
 

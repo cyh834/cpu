@@ -8,7 +8,7 @@ import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantia
 import utility._
 import amba.axi4._
 import cpu._
-import cpu.cache.InstrUncache
+import cpu.cache.InstUncache
 
 class FrontendInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
@@ -27,24 +27,33 @@ class Frontend(val parameter: CPUParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
+  val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
+  val uncache: Instance[InstUncache] = Instantiate(new InstUncache(parameter.useAsyncReset, parameter.instructionFetchParameter, parameter.VAddrBits, parameter.DataBits))
   val ifu:  Instance[IFU] = Instantiate(new IFU(parameter))
   val ibuf: Instance[IBUF] = Instantiate(new IBUF(parameter.ibufParameter))
   val idu:  Instance[IDU] = Instantiate(new IDU(parameter.iduParameter))
 
+  //==========================================================
+  // BPU  IFU → IBUF → IDU
+  //   ↓  ↑
+  // Uncache
+  //    ↓↑
+  //   IMEM
+  //==========================================================
+  bpu.io.out <> uncache.io.req
+  uncache.io.mem <> io.imem
+  ifu.io.in <> uncache.io.resp
   PipelineConnect(ifu.io.out, ibuf.io.in, ibuf.io.out.fire, false.B)
   PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, false.B)
-
   io.out :<>= idu.io.out
 
-  ifu.io.bpuUpdate := io.bpuUpdate
-
-  val uncache: Instance[InstrUncache] = Instantiate(
-    new InstrUncache(parameter.useAsyncReset, parameter.instructionFetchParameter)
-  )
   uncache.io.flush := false.B
-  uncache.io.ifu <> ifu.io.imem
-  io.imem <> uncache.io.mem
+  bpu.io.flush := false.B
+  bpu.io.update <> io.bpuUpdate
 
+  // TODO: dirty
+  bpu.io.clock := io.clock
+  bpu.io.reset := io.reset
   ifu.io.clock := io.clock
   ifu.io.reset := io.reset
   ibuf.io.clock := io.clock

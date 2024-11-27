@@ -12,9 +12,8 @@ import cpu._
 class IFUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
-  val imem = new IMEM
+  val in = Flipped(Decoupled(new IFUReq(parameter.DataBits, parameter.VAddrBits)))
   val out = Decoupled(new IFU2IBUF(parameter.VAddrBits))
-  val bpuUpdate = Input(Flipped(new BPUUpdate(parameter.bpuParameter)))
 }
 
 @instantiable
@@ -26,45 +25,18 @@ class IFU(val parameter: CPUParameter)
     with ImplicitReset {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
-  val pc = RegInit(parameter.ResetVector.U(parameter.VAddrBits.W))
-  val npc = Wire(UInt(parameter.VAddrBits.W))
-  val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
 
-  when(io.imem.req.fire) { pc := npc }
-
-  // predict next pc
-  bpu.io.in.bits.pc := pc
-  bpu.io.in.valid := io.imem.req.fire
-  bpu.io.flush := false.B
-
-  // load inst
-  io.imem.req.bits.addr := pc
-  io.imem.req.valid := io.out.ready
-  io.imem.resp.ready := io.out.ready
-
+  io.in.ready := io.out.ready
   // TODO: 一次取指保留多个指令
-  val offset = pc(2, 1) << 16
-  val inst = io.imem.resp.bits.data >> offset
-  val isrvc = isRVC(inst)
+  val offset = io.in.bits.pc(2, 1) << 4
+  val inst = io.in.bits.data >> offset
+  val isrvc = false.B //isRVC(inst)
 
-  io.out.bits.pc := pc
+  io.out.bits.pc := io.in.bits.pc
   io.out.bits.inst := Mux(isrvc, inst(15, 0), inst(31, 0))
-  io.out.bits.pred_taken := bpu.io.out.bits.pred_taken
+  io.out.bits.pred_taken := io.in.bits.pred_taken
   io.out.bits.isRVC := isrvc
-  io.out.valid := io.imem.resp.valid
-
-  // update pc
-  npc := Mux(bpu.io.out.bits.pred_taken, bpu.io.out.bits.target, Mux(isrvc, pc + 2.U, pc + 4.U))
-
-  // TODO: update ras in IFU?
-  // update ras
-  // bpu.io.ras_update.bits.brtype := Mux(isRet(inst), Brtype.ret,
-  //                                 Mux(isCall(inst), Brtype.call, Brtype.X))
-  // bpu.io.ras_update.bits.isRVC  := isrvc
-  // bpu.io.ras_update.valid := (isRet(inst) || isCall(inst)) && io.out.fire
-  bpu.io.update := io.bpuUpdate
-  bpu.io.clock := io.clock
-  bpu.io.reset := io.reset
+  io.out.valid := io.in.valid
 }
 
 //TODO: 支持32位

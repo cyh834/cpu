@@ -9,7 +9,9 @@ use tracing::debug;
 use crate::drive::Driver;
 use crate::plusarg::PlusArgMatcher;
 use crate::SimArgs;
+use crate::drive::SimState;
 use svdpi::SvScope;
+use tracing::{error, info};
 
 pub type SvBitVecVal = u32;
 
@@ -109,7 +111,10 @@ unsafe extern "C" fn axi_write(
   let mut driver = DPI_TARGET.lock().unwrap();
   if let Some(driver) = driver.as_mut() {
     let (strobe, data) = load_from_payload(payload, driver.dlen);
-    driver.axi_write(awaddr as u32, awsize as u64, &strobe, data);
+    if let Err(e) = driver.axi_write(awaddr as u32, awsize as u64, &strobe, data) {
+      error!("{}", e);
+      driver.state = SimState::BadTrap;
+    }
   }
 }
 
@@ -135,7 +140,14 @@ unsafe extern "C" fn axi_read(
   );
   let mut driver = DPI_TARGET.lock().unwrap();
   if let Some(driver) = driver.as_mut() {
-    let response = driver.axi_read(araddr as u32, arsize as u64);
+    let response = match driver.axi_read(araddr as u32, arsize as u64) {
+      Ok(response) => response,
+      Err(e) => {
+        error!("{}", e);
+        driver.state = SimState::BadTrap;
+        return;
+      }
+    };
     fill_axi_read_payload(payload, driver.dlen, &response);
   }
 }
@@ -156,7 +168,16 @@ unsafe extern "C" fn sim_init() {
 
 #[no_mangle]
 unsafe extern "C" fn sim_final() {
-  //TODO:
+  let mut driver = DPI_TARGET.lock().unwrap();
+  if let Some(driver) = driver.as_mut() {
+    match driver.state {
+      SimState::GoodTrap => info!("sim_final: GoodTrap"),
+      SimState::BadTrap => error!("sim_final: BadTrap"),
+      SimState::Running => error!("sim_final: Running"),
+      SimState::Timeout => info!("sim_final: Timeout"),
+      SimState::Finished => info!("sim_final: Finished"),
+    }
+  }
 }
 
 #[no_mangle]

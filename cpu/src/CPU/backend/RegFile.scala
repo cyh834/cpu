@@ -31,11 +31,16 @@ class RfWritePort(parameter: RegFileParameter) extends Bundle {
   val data = Input(UInt(parameter.dataWidth.W))
 }
 
+class RegFileProbe(parameter: RegFileParameter) extends Bundle {
+  val gpr = Vec(parameter.nrReg, UInt(parameter.dataWidth.W))
+}
+
 class RegFileInterface(parameter: RegFileParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val readPorts = Vec(parameter.numReadPorts, new RfReadPort(parameter))
   val writePorts = Vec(parameter.numWritePorts, new RfWritePort(parameter))
+  val probe = Output(Probe(new RegFileProbe(parameter), layers.Verification))
 }
 
 @instantiable
@@ -61,4 +66,9 @@ class RegFile(val parameter: RegFileParameter)
 
   assert(gpr(0) === 0.U, "x0 must be hardwired to 0")
 
+  layer.block(layers.Verification) {
+    val probeWire: RegFileProbe = Wire(new RegFileProbe(parameter))
+    define(io.probe, ProbeValue(probeWire))
+    probeWire.gpr := gpr
+  }
 }

@@ -13,10 +13,6 @@ pub mod plusarg;
 pub mod bus;
 pub mod ref_module;
 
-pub fn get_t() -> u64 {
-  0
-}
-
 pub(crate) struct SimArgs {
   /// Path to the ELF file
   pub elf_file: PathBuf,
@@ -58,7 +54,7 @@ impl SimArgs {
     Self {
       elf_file: matcher.match_("elf-file").into(),
       log_file: matcher.try_match("log-file").map(PathBuf::from),
-      log_level: matcher.try_match("log-level").unwrap_or("info").into(),
+      log_level: matcher.try_match("log-level").unwrap_or("trace").into(),
       //set: matcher.try_match("set").unwrap_or("rv64imafdc").into(),
       //lvl: matcher.try_match("lvl").unwrap_or("u").into(),
       #[cfg(feature = "trace")]

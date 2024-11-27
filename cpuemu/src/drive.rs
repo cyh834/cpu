@@ -13,7 +13,6 @@ use std::os::unix::fs::FileExt;
 use crate::{
   bus::ShadowBus, 
   dpi::{AxiReadPayload, RetireData}, 
-  get_t, 
   ref_module::{RefModule, nemu::NemuEvent}, 
   SimArgs,
 };
@@ -34,8 +33,10 @@ pub type FunctionSymTab = HashMap<u64, FunctionSym>;
 #[derive(Copy, Clone)]
 pub enum SimState {
     Running = 0,
-    Finished,
+    GoodTrap,
+    BadTrap,
     Timeout,
+    Finished
 }
 
 const EXIT_POS: u32 = 0x4000_0000;
@@ -46,8 +47,6 @@ pub(crate) struct Driver {
   refmodule: RefModule,
 
   bus: ShadowBus,
-
-  //scope: SvScope,
 
   #[cfg(feature = "trace")]
   dump_control: DumpControl,
@@ -63,6 +62,8 @@ pub(crate) struct Driver {
   pub(crate) dlen: u32,
 }
 
+static MAX_TIME: u64 = 10000;
+
 impl Driver {
   fn get_tick(&self) -> u64 {
     get_time() / self.clock_flip_time
@@ -76,7 +77,6 @@ impl Driver {
       #[cfg(feature = "difftest")]
       refmodule,
       bus: shadow_bus,
-      //scope,
       #[cfg(feature = "trace")]
       dump_control: DumpControl::new(scope, &args.wave_path, args.dump_start, args.dump_end),
       e_entry,
@@ -87,8 +87,6 @@ impl Driver {
       state: SimState::Running,
       dlen: 64,
     };
-    #[cfg(feature = "trace")]
-    self_.dump_control.start();
     self_
   }
   pub fn load_elf(path: &Path) -> anyhow::Result<(u64, ShadowBus, FunctionSymTab, RefModule)> {
@@ -163,16 +161,15 @@ impl Driver {
     Ok((elf.ehdr.e_entry, mem, fn_sym_tab, refmodule))
   }
 
-  pub(crate) fn axi_read(&mut self, addr: u32, arsize: u64) -> AxiReadPayload {
+  pub(crate) fn axi_read(&mut self, addr: u32, arsize: u64) -> anyhow::Result<AxiReadPayload> {
     let size = 1 << arsize;
-    let data = self.bus.read_mem_axi(addr, size, self.dlen / 8);
+    let data = self.bus.read_mem_axi(addr, size, self.dlen / 8)?;
     let data_hex = hex::encode(&data);
-    self.last_commit_cycle = get_t();
     trace!(
       "[{}] axi_read (addr={addr:#x}, size={size}, data={data_hex})",
-      get_t()
+      self.get_tick()
     );
-    AxiReadPayload { data }
+    Ok(AxiReadPayload { data })
   }
 
   pub(crate) fn axi_write(
@@ -181,15 +178,15 @@ impl Driver {
     awsize: u64,
     strobe: &[bool],
     data: &[u8],
-  ) {
+  ) -> anyhow::Result<()> {
     let size = 1 << awsize;
-    self.bus.write_mem_axi(addr, size, self.dlen / 8, strobe, data);
+    self.bus.write_mem_axi(addr, size, self.dlen / 8, strobe, data)?;
     let data_hex = hex::encode(data);
-    self.last_commit_cycle = get_t();
+    self.last_commit_cycle = self.get_tick();
 
     trace!(
       "[{}] axi_write (addr={addr:#x}, size={size}, data={data_hex})",
-      get_t()
+      self.get_tick()
     );
 
     // check exit with code
@@ -200,17 +197,19 @@ impl Driver {
         self.state = SimState::Finished;
       }
     }
+    Ok(())
   }
 
   pub(crate) fn watchdog(&mut self) -> u8 {
     self.state = match self.state {
-        SimState::Finished => SimState::Finished,
-        SimState::Timeout => SimState::Timeout,
         SimState::Running => {
             //check timeout
             let tick = self.get_tick();
             if tick - self.last_commit_cycle > self.timeout {
-                error!("[{tick}] watchdog timeout (last_commit_cycle={}", self.last_commit_cycle);
+                error!("[{tick}] watchdog timeout (last_commit_cycle={})", self.last_commit_cycle);
+                SimState::Timeout
+            } else if tick > MAX_TIME {
+                error!("[{tick}] watchdog timeout");
                 SimState::Timeout
             } else {
                 //check dump end
@@ -221,91 +220,88 @@ impl Driver {
                     #[cfg(feature = "trace")]
                     self.dump_control.try_start(tick);
 
-                    trace!("[{tick}] watchdog continue");
+                    //trace!("[{tick}] watchdog continue");
                     SimState::Running
                 }
                 
                 #[cfg(not(feature = "trace"))]
                 {
-                    trace!("[{tick}] watchdog continue");
+                    //trace!("[{tick}] watchdog continue");
                     SimState::Running
                 }
             }
         }
+        _ => self.state,
     };
     self.state as u8
   }
 
-  #[cfg(feature = "difftest")]
   pub(crate) fn retire_instruction(&mut self, dut: &RetireData) {
-    use crate::ref_module::csr_name;
-  
-    let ref_event = self.refmodule.step();
+    self.last_commit_cycle = self.get_tick();
 
-    if dut.skip {
-      let event = NemuEvent { gpr: dut.gpr, csr: dut.csr, pc: dut.pc };
-      self.refmodule.override_event(event);
-      return;
+    #[cfg(not(feature = "difftest"))] {
+        return;
     }
 
-    let mut mismatch = false;
-    let ref_pc = ref_event.pc;
-    let ref_gpr = ref_event.gpr;
-    let ref_csr = ref_event.csr;
-    let dut_pc = dut.pc;
-    let dut_gpr = dut.gpr;
-    let dut_csr = dut.csr;
-    let dut_inst = dut.inst;
+    #[cfg(feature = "difftest")] {
+        use crate::ref_module::csr_name;
+        let ref_event = self.refmodule.step();
 
-    //check gpr
-    for i in 0..32 {
-      let ref_gpr = ref_gpr[i];
-      let dut_gpr = dut_gpr[i];
-      if ref_gpr != dut_gpr {
-        println!(
-          "gpr{} mismatch! ref={:#x}, dut={:#x}",
-          i, ref_gpr, dut_gpr
-        );
-        mismatch = true;
-      }
-    }
+        if dut.skip {
+          let event = NemuEvent { gpr: dut.gpr, csr: dut.csr, pc: dut.pc };
+          self.refmodule.override_event(event);
+          return;
+        }
 
-    //check pc
-    if ref_pc != dut_pc {
-      println!("pc mismatch! ref={:#x}, dut={:#x}", ref_pc, dut_pc);
-      mismatch = true;
-    }
+        let mut mismatch = false;
+        let ref_pc = ref_event.pc;
+        let ref_gpr = ref_event.gpr;
+        let ref_csr = ref_event.csr;
+        let dut_pc = dut.pc;
+        let dut_gpr = dut.gpr;
+        let dut_csr = dut.csr;
+        let dut_inst = dut.inst;
 
-    //check csr
-    for i in 0..18 {
-      let ref_csr = ref_csr[i];
-      let dut_csr = dut_csr[i];
-      if ref_csr != dut_csr {
-        println!(
-          "csr{} mismatch! ref={:#x}, dut={:#x}",
-          csr_name(i),
-          ref_csr,
-          dut_csr
-        );
-        mismatch = true;
-      }
-    }
+        //check gpr
+        for i in 0..32 {
+          let ref_gpr = ref_gpr[i];
+          let dut_gpr = dut_gpr[i];
+          if ref_gpr != dut_gpr {
+            println!(
+              "gpr{} mismatch! ref={:#x}, dut={:#x}",
+              i, ref_gpr, dut_gpr
+            );
+            mismatch = true;
+          }
+        }
 
-    if mismatch {
-      println!("dut display:");
-      println!("pc:{:#x}", dut_pc);
-      println!("inst:{:#x}", dut_inst);
-      for i in 0..32 {
-        println!("gpr{}:{:#x}", i, dut_gpr[i]);
-      }
-      for i in 0..18 {
-        println!("csr{}:{:#x}", csr_name(i), dut_csr[i]);
-      }
+        //check pc
+        if ref_pc != dut_pc {
+          println!("pc mismatch! ref={:#x}, dut={:#x}", ref_pc, dut_pc);
+          mismatch = true;
+        }
 
-      println!("ref display:");
-      self.refmodule.display();
-      panic!("difftest mismatch!");
-      //self.state = SimState::Finished;
+        //check csr
+        for i in 0..18 {
+          let ref_csr = ref_csr[i];
+          let dut_csr = dut_csr[i];
+          if ref_csr != dut_csr {
+            println!(
+              "csr{} mismatch! ref={:#x}, dut={:#x}",
+              csr_name(i),
+              ref_csr,
+              dut_csr
+            );
+            mismatch = true;
+          }
+        }
+
+        if mismatch {
+          println!("ref display:");
+          self.refmodule.display();
+          println!("difftest mismatch!");
+          self.state = SimState::Finished;
+        }
     }
   }
 }

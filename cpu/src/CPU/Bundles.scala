@@ -3,7 +3,6 @@ package cpu
 import chisel3._
 import chisel3.util._
 import cpu.frontend.BPUParameter
-import cpu.cache.InstrUncacheIO
 
 class ForwardIO(LogicRegsWidth: Int, XLEN: Int) extends Bundle {
   val rfDest = Output(UInt(LogicRegsWidth.W))
@@ -30,13 +29,13 @@ object Brtype {
   def isRas(x: UInt): Bool = x === call || x === ret
 }
 
-class BPUReq(parameter: BPUParameter) extends Bundle {
-  val pc = UInt(parameter.vaddrBits.W)
+class PredictIO(vaddrBits: Int) extends Bundle {
+  val pc = Output(UInt(vaddrBits.W))
+  val pred_taken = Output(Bool())
 }
 
-class PredictIO(parameter: BPUParameter) extends Bundle {
-  val target = Output(UInt(parameter.vaddrBits.W))
-  val pred_taken = Output(Bool())
+class IFUReq(dataBits: Int, vaddrBits: Int) extends PredictIO(vaddrBits) {
+  val data = Input(UInt(dataBits.W))
 }
 
 //IFU
@@ -61,8 +60,6 @@ class BTBUpdate(parameter: BPUParameter) extends Bundle {
 }
 
 /** IFU */
-class IMEM extends InstrUncacheIO
-
 class IFU2IBUF(VAddrBits: Int) extends Bundle {
   val pc = UInt(VAddrBits.W)
   val inst = UInt(32.W)

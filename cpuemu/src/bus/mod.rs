@@ -1,7 +1,8 @@
 mod mem;
 
 use mem::*;
-use tracing::trace;
+use tracing::{trace, error};
+use anyhow;
 
 trait ShadowDevice: Send + Sync {
   fn new() -> Box<dyn ShadowDevice>
@@ -9,8 +10,6 @@ trait ShadowDevice: Send + Sync {
     Self: Sized;
   /// addr: offset respect to the base of this device
   fn read_mem(&self, addr: usize, size: usize) -> Vec<u8>;
-  /// addr: offset respect to the base of this device
-  //fn write_mem(&mut self, addr: usize, data: u8);
   /// addr: offset respect to the base of this device
   /// strobe: signals which element in data is valid, None = all valid
   fn write_mem_chunk(&mut self, addr: usize, size: usize, strobe: Option<&[bool]>, data: &[u8]);
@@ -61,11 +60,10 @@ impl ShadowBus {
     }
   }
 
-  pub fn read_mem_axi(&self, addr: u32, size: u32, bus_size: u32) -> Vec<u8> {
-    assert!(
-      addr % size == 0 && bus_size % size == 0,
-      "unaligned access addr={addr:#x} size={size}B dlen={bus_size}B"
-    );
+  pub fn read_mem_axi(&self, addr: u32, size: u32, bus_size: u32) -> anyhow::Result<Vec<u8>> {
+    if addr % size != 0 || bus_size % size != 0 {
+      anyhow::bail!("read_mem_axi addr={addr:#x} size={size}B dlen={bus_size}B");
+    }
 
     let start = addr as usize;
     let end = (addr + size) as usize;
@@ -85,14 +83,13 @@ impl ShadowBus {
           let end = start + data.len();
           data_padded[start..end].copy_from_slice(&data);
 
-          data_padded
+          Ok(data_padded)
         } else {
-          data
+          Ok(data)
         }
       }
       None => {
-        panic!("read addr={addr:#x} size={size}B dlen={bus_size}B leads to nowhere!");
-        //vec![0; bus_size as usize]
+        anyhow::bail!("read addr={addr:#x} size={size}B dlen={bus_size}B leads to nowhere!");
       }
     }
   }
@@ -108,15 +105,14 @@ impl ShadowBus {
     bus_size: u32,
     masks: &[bool],
     data: &[u8],
-  ) {
-    assert!(
-      addr % size == 0 && bus_size % size == 0,
-      "unaligned write access addr={addr:#x} size={size}B dlen={bus_size}B"
-    );
+  ) -> anyhow::Result<()> {
+    if addr % size != 0 || bus_size % size != 0 {
+      anyhow::bail!("write_mem_axi addr={addr:#x} size={size}B dlen={bus_size}B");
+    }
 
     if !masks.iter().any(|x| *x) {
       trace!("Mask 0 write detected");
-      return;
+      return Ok(());
     }
 
     let start = (addr & ((!bus_size) + 1)) as usize;
@@ -132,12 +128,13 @@ impl ShadowBus {
         device.write_mem_chunk(offset, bus_size as usize, Option::from(masks), data);
       }
       None => {
-        panic!("write addr={addr:#x} size={size}B dlen={bus_size}B leads to nowhere!");
+        anyhow::bail!("write addr={addr:#x} size={size}B dlen={bus_size}B leads to nowhere!");
       }
     }
+    Ok(())
   }
 
-  pub fn load_mem_seg(&mut self, vaddr: usize, data: &[u8]) {
+  pub fn load_mem_seg(&mut self, vaddr: usize, data: &[u8]) -> anyhow::Result<()> {
     let handler = self
       .devices
       .iter_mut()
@@ -146,15 +143,14 @@ impl ShadowBus {
           *base <= vaddr as usize && (vaddr as usize + data.len()) <= (*base + *size)
         }
       })
-      .unwrap_or_else(|| {
-        panic!(
-          "fail reading ELF into mem with vaddr={:#x}, len={}B: load memory to nowhere",
-          vaddr,
-          data.len()
-        )
-      });
+      .ok_or_else(|| anyhow::anyhow!(
+        "fail reading ELF into mem with vaddr={:#x}, len={}B: load memory to nowhere",
+        vaddr,
+        data.len()
+      ))?;
 
     let offset = vaddr - handler.base;
-    handler.device.write_mem_chunk(offset, data.len(), None, data)
+    handler.device.write_mem_chunk(offset, data.len(), None, data);
+    Ok(())
   }
 }

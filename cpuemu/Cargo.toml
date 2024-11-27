@@ -24,3 +24,4 @@ difftest = []
 
 [lib]
 crate-type = ["staticlib"]
+

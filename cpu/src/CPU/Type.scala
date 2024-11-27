@@ -46,6 +46,9 @@ object LSUOpType {
   def lhu = "b0101".U(FuOpType.width.W)
   def lwu = "b0110".U(FuOpType.width.W)
 
+  def size(func: UInt) = func(1, 0)
+  def loadIsUnsigned(func: UInt) = func(2)
+
   // store pipeline
   // bit encoding: | store 00 | size(2bit) |
   def sb = "b0000".U(FuOpType.width.W)

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2024 Jiuyang Liu <liu@jiuyang.me>
 
-{ lib, stdenv, rtl, verilator, zlib, dpi-lib, thread-num ? 8, libnemu }:
+{ lib, stdenv, rtl, verilator, zlib, dpi-lib, thread-num ? 1, libnemu }:
 let vName = "V${rtl.target}";
 in stdenv.mkDerivation {
   name = "verilated";

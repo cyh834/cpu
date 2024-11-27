@@ -13,7 +13,7 @@ object BPUParameter {
     upickle.default.macroRW
 }
 
-case class BPUParameter(useAsyncReset: Boolean, xlen: Int, vaddrBits: Int) extends SerializableModuleParameter {
+case class BPUParameter(useAsyncReset: Boolean, xlen: Int, vaddrBits: Int, resetVector: Long) extends SerializableModuleParameter {
   val NRbtb = 512
   val NRras = 16
   // 多路?
@@ -117,8 +117,8 @@ class BPUInterface(parameter: BPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val flush = Input(Bool())
-  val in = Flipped(Valid(new BPUReq(parameter)))
-  val out = Valid(new PredictIO(parameter))
+  //val in = Flipped(Valid(new BPUReq(parameter)))
+  val out = Decoupled(new PredictIO(parameter.vaddrBits))
   val update = Input(Flipped(new BPUUpdate(parameter)))
 }
 
@@ -130,7 +130,12 @@ class BPU(val parameter: BPUParameter)
     with ImplicitReset {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
-  val pc = io.in.bits.pc
+
+  // pc
+  val pc = RegInit(parameter.resetVector.U(parameter.vaddrBits.W))
+  val npc = Wire(UInt(parameter.vaddrBits.W))
+  when(io.out.fire) { pc := npc }
+
   implicit def fromUInt(pc: UInt): BTBAddr = (new BTBAddr(parameter)).fromUInt(pc)
 
   // BTB
@@ -171,7 +176,8 @@ class BPU(val parameter: BPUParameter)
   val brIdx = btb.hit(pc) && Mux(btbRead.brtype === Brtype.branch, pred_taken, true.B)
 
   // update pc
-  io.out.bits.target := target
+  npc := Mux(brIdx, target, pc + 4.U)
+  io.out.bits.pc := pc
   io.out.bits.pred_taken := brIdx
   io.out.valid := true.B
 }

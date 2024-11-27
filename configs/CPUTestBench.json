@@ -16,6 +16,6 @@
         ],
         "useAsyncReset": false
     },
-    "timeout": 70000,
+    "timeout": 10000,
     "testSize": 100
 }
