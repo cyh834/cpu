@@ -10,6 +10,7 @@ import utility._
 import amba.axi4._
 import cpu._
 import cpu.frontend._
+import cpu.cache._
 
 class BackendProbe(parameter: CPUParameter) extends Bundle {
   val retire: Valid[Retire] = Valid(new Retire)
@@ -19,7 +20,7 @@ class BackendInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val in = Flipped(Decoupled(new DecodeIO(parameter.iduParameter)))
-  val dmem = AXI4(parameter.loadStoreAXIParameter)
+  val dmem = AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
   val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
   val flush = Input(UInt(2.W))
   val probe = Output(Probe(new BackendProbe(parameter), layers.Verification))
@@ -57,7 +58,11 @@ class Backend(val parameter: CPUParameter)
   scoreboard.io.isu <> isu.io.scoreboard
   scoreboard.io.wb <> wbu.io.scoreboard
 
-  io.dmem <> exu.io.dmem
+  val uncache = Instantiate(new DataUncache(parameter))
+  uncache.io.flush := io.flush(0)
+  uncache.io.load <> exu.io.load
+  uncache.io.store <> exu.io.store
+  io.dmem <> uncache.io.mem
 
   layer.block(layers.Verification) {
     val probeWire: BackendProbe = Wire(new BackendProbe(parameter))
@@ -66,7 +71,7 @@ class Backend(val parameter: CPUParameter)
     probeWire.retire.bits.inst := RegNext(wbu.io.in.bits.instr)
     probeWire.retire.bits.pc := RegNext(wbu.io.in.bits.pc)
     probeWire.retire.bits.gpr := probe.read(regfile.io.probe).gpr
-    probeWire.retire.bits.csr := 0.U.asTypeOf(probeWire.retire.bits.csr)
+    probeWire.retire.bits.csr := probe.read(exu.io.probe).csrprobe.csr
     probeWire.retire.bits.skip := false.B
     probeWire.retire.bits.is_rvc := false.B
     probeWire.retire.bits.rfwen := true.B
@@ -84,6 +89,8 @@ class Backend(val parameter: CPUParameter)
   regfile.io.reset := io.reset
   scoreboard.io.clock := io.clock
   scoreboard.io.reset := io.reset
+  uncache.io.clock := io.clock
+  uncache.io.reset := io.reset
   // io.redirect <> wbu.io.redirect
   // forward
   // isu.io.forward <> exu.io.forward

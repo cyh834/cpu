@@ -13,7 +13,8 @@ object BPUParameter {
     upickle.default.macroRW
 }
 
-case class BPUParameter(useAsyncReset: Boolean, xlen: Int, vaddrBits: Int, resetVector: Long) extends SerializableModuleParameter {
+case class BPUParameter(useAsyncReset: Boolean, xlen: Int, vaddrBits: Int, resetVector: Long)
+    extends SerializableModuleParameter {
   val NRbtb = 512
   val NRras = 16
   // 多路?
@@ -117,7 +118,7 @@ class BPUInterface(parameter: BPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val flush = Input(Bool())
-  //val in = Flipped(Valid(new BPUReq(parameter)))
+  // val in = Flipped(Valid(new BPUReq(parameter)))
   val out = Decoupled(new PredictIO(parameter.vaddrBits))
   val update = Input(Flipped(new BPUUpdate(parameter)))
 }

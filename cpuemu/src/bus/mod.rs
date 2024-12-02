@@ -1,8 +1,8 @@
 mod mem;
 
-use mem::*;
-use tracing::{trace, error};
 use anyhow;
+use mem::*;
+use tracing::{error, trace};
 
 trait ShadowDevice: Send + Sync {
   fn new() -> Box<dyn ShadowDevice>
@@ -40,22 +40,21 @@ impl ShadowBus {
           base: 0x80000000,
           size: 0x08000000,
           device: MemDevice::<0x08000000>::new(),
-        }
-        //ShadowBusDevice {
-        //  base: 0x20000000,
-        //  size: SCALAR_SIZE,
-        //  device: MemDevice::<SCALAR_SIZE>::new(),
-        //},
-        //ShadowBusDevice {
-        //  base: 0x40000000,
-        //  size: DDR_SIZE,
-        //  device: MemDevice::<DDR_SIZE>::new(),
-        //},
-        //ShadowBusDevice {
-        //  base: 0xc0000000,
-        //  size: SRAM_SIZE,
-        //  device: MemDevice::<SRAM_SIZE>::new(),
-        //},
+        }, //ShadowBusDevice {
+           //  base: 0x20000000,
+           //  size: SCALAR_SIZE,
+           //  device: MemDevice::<SCALAR_SIZE>::new(),
+           //},
+           //ShadowBusDevice {
+           //  base: 0x40000000,
+           //  size: DDR_SIZE,
+           //  device: MemDevice::<DDR_SIZE>::new(),
+           //},
+           //ShadowBusDevice {
+           //  base: 0xc0000000,
+           //  size: SRAM_SIZE,
+           //  device: MemDevice::<SRAM_SIZE>::new(),
+           //},
       ],
     }
   }
@@ -143,11 +142,13 @@ impl ShadowBus {
           *base <= vaddr as usize && (vaddr as usize + data.len()) <= (*base + *size)
         }
       })
-      .ok_or_else(|| anyhow::anyhow!(
-        "fail reading ELF into mem with vaddr={:#x}, len={}B: load memory to nowhere",
-        vaddr,
-        data.len()
-      ))?;
+      .ok_or_else(|| {
+        anyhow::anyhow!(
+          "fail reading ELF into mem with vaddr={:#x}, len={}B: load memory to nowhere",
+          vaddr,
+          data.len()
+        )
+      })?;
 
     let offset = vaddr - handler.base;
     handler.device.write_mem_chunk(offset, data.len(), None, data);

@@ -115,10 +115,24 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
 
   // Verification Logic
   val CPUProbe = probe.read(dut.io.cpuProbe)
+  val retire = CPUProbe.backendProbe.retire.bits
   RawClockedVoidFunctionCall("retire_instruction")(
     implicitClock,
     CPUProbe.backendProbe.retire.valid,
-    CPUProbe.backendProbe.retire.bits
+    retire.inst,
+    retire.pc,
+    retire.gpr(0),retire.gpr(1),retire.gpr(2),retire.gpr(3),retire.gpr(4),retire.gpr(5),retire.gpr(6),retire.gpr(7),
+    retire.gpr(8),retire.gpr(9),retire.gpr(10),retire.gpr(11),retire.gpr(12),retire.gpr(13),retire.gpr(14),retire.gpr(15),
+    retire.gpr(16),retire.gpr(17),retire.gpr(18),retire.gpr(19),retire.gpr(20),retire.gpr(21),retire.gpr(22),retire.gpr(23),
+    retire.gpr(24),retire.gpr(25),retire.gpr(26),retire.gpr(27),retire.gpr(28),retire.gpr(29),retire.gpr(30),retire.gpr(31),
+    retire.csr(0),retire.csr(1),retire.csr(2),retire.csr(3),retire.csr(4),retire.csr(5),retire.csr(6),retire.csr(7),
+    retire.csr(8),retire.csr(9),retire.csr(10),retire.csr(11),retire.csr(12),retire.csr(13),retire.csr(14),retire.csr(15),
+    retire.csr(16),retire.csr(17),
+    retire.skip,
+    retire.is_rvc,
+    retire.rfwen,
+    retire.is_load,
+    retire.is_store
   )
 }
 

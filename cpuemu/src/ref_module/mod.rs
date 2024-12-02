@@ -1,7 +1,6 @@
 pub mod nemu;
 pub use nemu::*;
 
-
 pub struct RefModule {
   module: Nemu,
   event: NemuEvent,
@@ -10,17 +9,25 @@ pub struct RefModule {
 impl RefModule {
   pub fn new() -> Self {
     let module = Nemu::new();
-    RefModule{module, event: NemuEvent::new()}
+    RefModule { module, event: NemuEvent::new() }
   }
 
   pub fn load_mem_seg(&mut self, addr: usize, bytes: &[u8]) {
-    self.module.memcpy(addr as u64, bytes.as_ptr() as *mut (), bytes.len(), DIFFTEST_TO_DUT);
+    self.module.memcpy(
+      addr as u64,
+      bytes.as_ptr() as *mut (),
+      bytes.len(),
+      DIFFTEST_TO_REF,
+    );
     //self.module.load_bytes_to_mem(addr, bytes.len(), bytes.to_vec());
   }
 
   pub fn step(&mut self) -> NemuEvent {
     self.module.exec(1);
-    self.module.regcpy(&mut self.event as *mut NemuEvent as *mut (), DIFFTEST_TO_DUT);
+    self.module.regcpy(
+      &mut self.event as *mut NemuEvent as *mut (),
+      DIFFTEST_TO_DUT,
+    );
 
     self.event
   }

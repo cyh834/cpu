@@ -28,22 +28,29 @@ class Frontend(val parameter: CPUParameter)
   override protected def implicitReset: Reset = io.reset
 
   val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
-  val uncache: Instance[InstUncache] = Instantiate(new InstUncache(parameter.useAsyncReset, parameter.instructionFetchParameter, parameter.VAddrBits, parameter.DataBits))
+  val uncache: Instance[InstUncache] = Instantiate(
+    new InstUncache(
+      parameter.useAsyncReset,
+      parameter.instructionFetchParameter,
+      parameter.VAddrBits,
+      parameter.DataBits
+    )
+  )
   val ifu:  Instance[IFU] = Instantiate(new IFU(parameter))
   val ibuf: Instance[IBUF] = Instantiate(new IBUF(parameter.ibufParameter))
   val idu:  Instance[IDU] = Instantiate(new IDU(parameter.iduParameter))
 
-  //==========================================================
+  // ==========================================================
   // BPU  IFU → IBUF → IDU
   //   ↓  ↑
   // Uncache
   //    ↓↑
   //   IMEM
-  //==========================================================
+  // ==========================================================
   bpu.io.out <> uncache.io.req
   uncache.io.mem <> io.imem
   ifu.io.in <> uncache.io.resp
-  PipelineConnect(ifu.io.out, ibuf.io.in, ibuf.io.out.fire, false.B)
+  ibuf.io.in <> ifu.io.out
   PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, false.B)
   io.out :<>= idu.io.out
 

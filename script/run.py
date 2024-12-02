@@ -73,7 +73,7 @@ def nix_run(elfFilePath: str):
 
 def run_test(tests: List[str], testpath: str):
     for test in tests:
-        print(f"\033[1;33mRunning: {test}\033[0m")
+        print(f"\033[1;36mRunning: {test}\033[0m")
 
         nix_run(os.path.join(testpath, test))
 

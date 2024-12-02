@@ -18,7 +18,3 @@ trash/
 *.fst
 *.fsdb
 *.log
-
-trace
-*.hier
-

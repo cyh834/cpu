@@ -1,17 +1,16 @@
 pub(super) const DIFFTEST_TO_DUT: bool = false;
 pub(super) const DIFFTEST_TO_REF: bool = true;
 
-pub struct Nemu {
-}
+pub struct Nemu {}
 
 impl Nemu {
   pub fn new() -> Self {
     #[cfg(feature = "difftest")]
     unsafe { difftest_init() }
-    Nemu{}
+    Nemu {}
   }
 
-  pub fn regcpy(&self,dut: *mut (), direction: bool) {
+  pub fn regcpy(&self, dut: *mut (), direction: bool) {
     unsafe { difftest_regcpy(dut, direction) }
   }
 
@@ -52,13 +51,12 @@ extern "C" {
   pub fn difftest_load_flash(flash_bin: *mut (), f_size: usize);
 }
 
-
 #[repr(C, packed)]
-#[derive(Clone, Copy)]
-pub struct NemuEvent{
-  pub gpr : [u64; 32],
+#[derive(Clone, Copy, Debug)]
+pub struct NemuEvent {
+  pub gpr: [u64; 32],
 
-  pub csr : [u64; 18],
+  pub csr: [u64; 18],
   //pub mode : u64,
   //pub mstatus, sstatus : u64,
   //pub mepc, sepc : u64,
@@ -69,16 +67,11 @@ pub struct NemuEvent{
   //pub mip, mie : u64,
   //pub mscratch, sscratch : u64,
   //pub mideleg, medeleg : u64,
-  pub pc : u64,
+  pub pc: u64,
 }
 
 impl NemuEvent {
   pub fn new() -> Self {
-    Self{
-      gpr : [0; 32],
-      csr : [0; 18],
-      pc : 0,
-    }
+    Self { gpr: [0; 32], csr: [0; 18], pc: 0 }
   }
 }
-

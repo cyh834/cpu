@@ -2,7 +2,10 @@ use std::env;
 
 fn main() {
   if cfg!(feature = "difftest") {
-    println!("cargo::rustc-link-search=native={}", env::var("REF_MODULE_LIB_DIR").expect("REF_MODULE_LIB_DIR should be set"));
+    println!(
+      "cargo::rustc-link-search=native={}",
+      env::var("REF_MODULE_LIB_DIR").expect("REF_MODULE_LIB_DIR should be set")
+    );
     println!("cargo::rustc-link-lib=dylib=nemu");
 
     println!("cargo::rerun-if-env-changed=REF_MODULE_LIB");
@@ -23,7 +26,6 @@ fn main() {
     //println!("cargo::rustc-link-lib=static=spike_interfaces");
 
     //println!("cargo::rerun-if-env-changed=REF_MODULE_INTERFACES_LIB_DIR");
-
   }
 }
 //-L" "/nix/store/1csr19kp8kmjmljqs5ndr77ari8zcwc2-libnemu-unstable-2024-11-19/lib"

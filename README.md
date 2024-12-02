@@ -71,11 +71,7 @@ nix fmt
 nix develop -c bash -c 'mill -i cpu.reformat'
 
 # 格式化Rust代码
-cd cpuemu
-nix develop -c cargo fmt
-
-# 删除多余的依赖，尚不知道怎么优化，反正能跑（
-rm -rf dependencies/
+nix develop -c bash -c 'cd cpuemu && cargo fmt'
 ```
 
 ### 更新依赖
@@ -90,8 +86,10 @@ nix run '.#nvfetcher'
 # 更新mill依赖
 nix build '.#cpu.cpu-compiled.millDeps' --rebuild
 
+# 更新Cargo依赖
+nix develop -c bash -c 'cd cpuemu && cargo update'
 ```
-最后更新相应的Hash
+最后可能要更新相应的Hash
 
 ## 参考
 

@@ -27,6 +27,9 @@ object FuType {
 
   def isjmp(fu: UInt) = fu === jmp
   def isbrh(fu: UInt) = fu === brh
+  def isldu(fu: UInt) = fu === ldu
+  def isstu(fu: UInt) = fu === stu
+  def islsu(fu: UInt) = isldu(fu) || isstu(fu)
 }
 
 object FuOpType {
@@ -46,7 +49,7 @@ object LSUOpType {
   def lhu = "b0101".U(FuOpType.width.W)
   def lwu = "b0110".U(FuOpType.width.W)
 
-  def size(func: UInt) = func(1, 0)
+  def size(func:           UInt) = func(1, 0)
   def loadIsUnsigned(func: UInt) = func(2)
 
   // store pipeline

@@ -4,6 +4,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.stage._
 import chisel3.util.experimental.BoringUtils
+import chisel3.probe.{define, Probe, ProbeValue}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 
@@ -23,6 +24,10 @@ class WriteBackIO(parameter: CPUParameter) extends Bundle {
   val isRVC = Bool()
 }
 
+class EXUProbe(parameter: CPUParameter) extends Bundle {
+  val csrprobe = new CSRProbe(parameter)
+}
+
 class EXUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
@@ -30,8 +35,12 @@ class EXUInterface(parameter: CPUParameter) extends Bundle {
   val out = Decoupled(new WriteBackIO(parameter))
   val flush = Input(Bool())
   val forward = new ForwardIO(parameter.LogicRegsWidth, parameter.XLEN)
-  val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
+  // val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
+  val load = new LoadInterface(parameter)
+  val store = new StoreInterface(parameter)
   val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
+
+  val probe = Output(Probe(new EXUProbe(parameter), layers.Verification))
 }
 
 @instantiable
@@ -45,7 +54,6 @@ class EXU(val parameter: CPUParameter)
 
   val (fuType, fuOpType, brtype): (UInt, UInt, UInt) = (io.in.bits.fuType, io.in.bits.fuOpType, io.in.bits.brtype)
 
-  io.dmem := DontCare
   // todo: 用循环实现?
   val alu = Instantiate(new ALU(parameter)).io
   alu.clock := io.clock
@@ -66,15 +74,32 @@ class EXU(val parameter: CPUParameter)
   jmp.func := fuOpType
   jmp.isRVC := io.in.bits.isRVC
 
+  val lsu = Instantiate(new LSU(parameter)).io
+  val islsu = FuType.islsu(fuType)
+  lsu.clock := io.clock
+  lsu.reset := io.reset
+  lsu.src := io.in.bits.src
+  lsu.func := fuOpType
+  lsu.isStore := FuType.isstu(fuType)
+  lsu.valid := io.in.valid && islsu
+  io.load <> lsu.load
+  io.store <> lsu.store
+
+  val csr = Instantiate(new CSR(parameter)).io
+  csr.clock := io.clock
+  csr.reset := io.reset
+
   io.out.bits.wb.wen := io.in.bits.rfWen
   io.out.bits.wb.addr := io.in.bits.ldest
   io.out.bits.wb.data := MuxLookup(fuType, alu.result)(
     Seq(
-      FuType.jmp -> jmp.result
+      FuType.jmp -> jmp.result,
+      FuType.ldu -> lsu.result,
+      FuType.stu -> lsu.result
     )
   )
 
-  io.out.valid := io.in.valid && !io.flush
+  io.out.valid := io.in.valid && !io.flush && (lsu.out_valid || !islsu)
   io.in.ready := io.out.ready
 
   // target
@@ -120,4 +145,10 @@ class EXU(val parameter: CPUParameter)
   io.out.bits.instr := io.in.bits.instr
   io.out.bits.isRVC := io.in.bits.isRVC
   io.out.bits.pc := io.in.bits.pc
+
+  layer.block(layers.Verification) {
+    val probeWire: EXUProbe = Wire(new EXUProbe(parameter))
+    define(io.probe, ProbeValue(probeWire))
+    probeWire.csrprobe.csr := probe.read(csr.probe).csr
+  }
 }

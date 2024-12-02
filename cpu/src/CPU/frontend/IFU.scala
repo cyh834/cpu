@@ -30,7 +30,7 @@ class IFU(val parameter: CPUParameter)
   // TODO: 一次取指保留多个指令
   val offset = io.in.bits.pc(2, 1) << 4
   val inst = io.in.bits.data >> offset
-  val isrvc = false.B //isRVC(inst)
+  val isrvc = false.B // isRVC(inst)
 
   io.out.bits.pc := io.in.bits.pc
   io.out.bits.inst := Mux(isrvc, inst(15, 0), inst(31, 0))
