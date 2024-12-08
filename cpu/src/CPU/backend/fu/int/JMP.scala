@@ -14,8 +14,7 @@ class JMPInterface(parameter: CPUParameter) extends Bundle {
   val func = Input(FuOpType())
   val isRVC = Input(Bool())
   val result, target = Output(UInt(parameter.XLEN.W))
-  val mistarget = Output(Bool())
-  // val isAuipc = Output(Bool())
+  val isAuipc = Output(Bool())
 }
 
 @instantiable
@@ -34,6 +33,5 @@ class JMP(val parameter: CPUParameter)
 
   io.target := Cat(target(XLEN - 1, 1), false.B)
   io.result := Mux(isAuipc, target, snpc)
-  io.mistarget := io.pc =/= io.target
-  // io.isAuipc := isAuipc
+  io.isAuipc := isAuipc
 }

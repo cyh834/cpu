@@ -87,6 +87,8 @@ pub struct RetireData {
 //----------------------
 // dpi functions
 //----------------------
+
+pub(crate) static mut LAST_WRITE_PC: u64 = 0;
 #[no_mangle]
 unsafe extern "C" fn axi_write(
   channel_id: c_longlong,
@@ -102,21 +104,28 @@ unsafe extern "C" fn axi_write(
   awregion: c_longlong,
   payload: *const SvBitVecVal,
 ) {
-  debug!(
-    "axi_write (channel_id={channel_id}, awid={awid}, awaddr={awaddr:#x}, \
-  awlen={awlen}, awsize={awsize}, awburst={awburst}, awlock={awlock}, awcache={awcache}, \
-  awprot={awprot}, awqos={awqos}, awregion={awregion})"
-  );
+  if LAST_WRITE_PC != awaddr as u64 {
+    debug!(
+      "axi_write (channel_id={channel_id}, awid={awid}, awaddr={awaddr:#x}, \
+      awlen={awlen}, awsize={awsize}, awburst={awburst}, awlock={awlock}, awcache={awcache}, \
+      awprot={awprot}, awqos={awqos}, awregion={awregion})"
+    );
+  }
   let mut driver = DPI_TARGET.lock().unwrap();
   if let Some(driver) = driver.as_mut() {
     let (strobe, data) = load_from_payload(payload, driver.dlen);
     if let Err(e) = driver.axi_write(awaddr as u32, awsize as u64, &strobe, data) {
-      error!("{}", e);
+      if awaddr as u64 != LAST_WRITE_PC {
+        error!("{}", e);
+      }
       driver.state = SimState::BadTrap;
+      LAST_WRITE_PC = awaddr as u64;
     }
   }
+  LAST_WRITE_PC = awaddr as u64;
 }
 
+pub(crate) static mut LAST_READ_PC: u64 = 0;
 #[no_mangle]
 unsafe extern "C" fn axi_read(
   channel_id: c_longlong,
@@ -132,23 +141,30 @@ unsafe extern "C" fn axi_read(
   arregion: c_longlong,
   payload: *mut SvBitVecVal,
 ) {
-  debug!(
-    "axi_read (channel_id={channel_id}, arid={arid}, araddr={araddr:#x}, \
-  arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
-  arprot={arprot}, arqos={arqos}, arregion={arregion})"
-  );
+  // 防止重复打印,但dirty且不靠谱
+  if LAST_READ_PC != araddr as u64 {
+    debug!(
+      "axi_read (channel_id={channel_id}, arid={arid}, araddr={araddr:#x}, \
+      arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
+      arprot={arprot}, arqos={arqos}, arregion={arregion})"
+    );
+  }
   let mut driver = DPI_TARGET.lock().unwrap();
   if let Some(driver) = driver.as_mut() {
     let response = match driver.axi_read(araddr as u32, arsize as u64) {
       Ok(response) => response,
       Err(e) => {
-        error!("{}", e);
+        if araddr as u64 != LAST_READ_PC {
+          error!("{}", e);
+        }
         driver.state = SimState::BadTrap;
+        LAST_READ_PC = araddr as u64;
         return;
       }
     };
     fill_axi_read_payload(payload, driver.dlen, &response);
   }
+  LAST_READ_PC = araddr as u64;
 }
 
 #[no_mangle]

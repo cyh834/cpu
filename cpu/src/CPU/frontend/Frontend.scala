@@ -13,6 +13,7 @@ import cpu.cache.InstUncache
 class FrontendInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val flush = Input(Bool())
   val imem = AXI4(parameter.instructionFetchParameter)
   val out = Decoupled(new DecodeIO(parameter.iduParameter))
   val bpuUpdate = Input(Flipped(new BPUUpdate(parameter.bpuParameter)))
@@ -51,12 +52,17 @@ class Frontend(val parameter: CPUParameter)
   uncache.io.mem <> io.imem
   ifu.io.in <> uncache.io.resp
   ibuf.io.in <> ifu.io.out
-  PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, false.B)
+  PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, io.flush)
   io.out :<>= idu.io.out
-
-  uncache.io.flush := false.B
-  bpu.io.flush := false.B
   bpu.io.update <> io.bpuUpdate
+
+  bpu.io.flush := io.flush
+  bpu.io.flush_rvc := ifu.io.flush_rvc
+  bpu.io.flush_pc := ifu.io.flush_pc
+  uncache.io.flush := io.flush
+  uncache.io.flush_rvc := ifu.io.flush_rvc
+  ifu.io.flush := io.flush
+  ibuf.io.flush := io.flush
 
   // TODO: dirty
   bpu.io.clock := io.clock

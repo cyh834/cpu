@@ -105,7 +105,7 @@ class IDU(val parameter: IDUParameter)
 
   io.out.bits.pred_taken := io.in.bits.pred_taken
   io.out.bits.pc := io.in.bits.pc
-  io.out.bits.isRVC := isRVC(instr)
+  io.out.bits.isRVC := io.in.bits.isRVC
 
   io.out.bits.brtype := Mux(
     isRet(instr),

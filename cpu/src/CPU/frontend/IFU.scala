@@ -12,8 +12,11 @@ import cpu._
 class IFUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val flush = Input(Bool())
   val in = Flipped(Decoupled(new IFUReq(parameter.DataBits, parameter.VAddrBits)))
   val out = Decoupled(new IFU2IBUF(parameter.VAddrBits))
+  val flush_rvc = Output(Bool())
+  val flush_pc = Output(UInt(parameter.VAddrBits.W))
 }
 
 @instantiable
@@ -30,13 +33,15 @@ class IFU(val parameter: CPUParameter)
   // TODO: 一次取指保留多个指令
   val offset = io.in.bits.pc(2, 1) << 4
   val inst = io.in.bits.data >> offset
-  val isrvc = false.B // isRVC(inst)
+  val isrvc = isRVC(inst)
 
   io.out.bits.pc := io.in.bits.pc
   io.out.bits.inst := Mux(isrvc, inst(15, 0), inst(31, 0))
   io.out.bits.pred_taken := io.in.bits.pred_taken
   io.out.bits.isRVC := isrvc
-  io.out.valid := io.in.valid
+  io.out.valid := io.in.valid && !io.flush
+  io.flush_rvc := isrvc && io.in.valid
+  io.flush_pc := io.in.bits.pc
 }
 
 //TODO: 支持32位

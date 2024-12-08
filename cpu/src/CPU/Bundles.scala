@@ -72,6 +72,7 @@ class IBUF2IDU(VAddrBits: Int) extends Bundle {
   val pc = UInt(VAddrBits.W)
   val inst = UInt(32.W)
   val pred_taken = Bool()
+  val isRVC = Bool()
 //  val exceptionVec    = ExceptionVec()
 //  val preDecodeInfo   = new PreDecodeInfo
 //  val crossPageIPFFix = Bool()

@@ -60,6 +60,9 @@ pub(crate) struct Driver {
   pub(crate) state: SimState,
 
   pub(crate) dlen: u32,
+
+  //disasm: Disasm
+  pc: u64,
 }
 
 static MAX_TIME: u64 = 10000;
@@ -88,6 +91,8 @@ impl Driver {
       last_commit_cycle: 0,
       state: SimState::Running,
       dlen: 64,
+      pc: 0x8000_0000,
+      //disasm: Disasm::new(),
     };
     self_
   }
@@ -167,10 +172,15 @@ impl Driver {
     let size = 1 << arsize;
     let data = self.bus.read_mem_axi(addr, size, self.dlen / 8)?;
     let data_hex = hex::encode(&data);
-    trace!(
-      "[{}] axi_read (addr={addr:#x}, size={size}, data={data_hex})",
-      self.get_tick()
-    );
+    unsafe {
+      use crate::dpi::LAST_READ_PC;
+      if addr as u64 != LAST_READ_PC {
+        trace!(
+          "[{}] axi_read (addr={addr:#x}, size={size}, data={data_hex})",
+          self.get_tick()
+        );
+      }
+    }
     Ok(AxiReadPayload { data })
   }
 
@@ -186,10 +196,15 @@ impl Driver {
     let data_hex = hex::encode(data);
     self.last_commit_cycle = self.get_tick();
 
-    trace!(
-      "[{}] axi_write (addr={addr:#x}, size={size}, data={data_hex})",
-      self.get_tick()
-    );
+    unsafe {
+      use crate::dpi::LAST_WRITE_PC;
+      if addr as u64 != LAST_WRITE_PC {
+        trace!(
+          "[{}] axi_write (addr={addr:#x}, size={size}, data={data_hex})",
+          self.get_tick()
+        );
+      }
+    }
 
     // check exit with code
     if addr == EXIT_POS {
@@ -256,7 +271,7 @@ impl Driver {
 
     #[cfg(feature = "difftest")]
     {
-      use crate::ref_module::csr_name;
+      use crate::ref_module::{csr_name, gpr_name};
       let ref_event = self.refmodule.step();
 
       if dut.skip {
@@ -266,27 +281,28 @@ impl Driver {
       }
 
       let mut mismatch = false;
-      let ref_pc = ref_event.pc;
+      let ref_next_pc = ref_event.pc;
       let ref_gpr = ref_event.gpr;
       let ref_csr = ref_event.csr;
+
       let dut_pc = dut.pc;
       let dut_gpr = dut.gpr;
       let dut_csr = dut.csr;
       let dut_inst = dut.inst;
 
+      //check pc
+      if self.pc != dut_pc {
+        println!("pc mismatch! ref={:#x}, dut={:#x}", self.pc, dut_pc);
+        mismatch = true;
+      }
+
       //check gpr
       for i in 0..32 {
         if ref_gpr[i] != dut_gpr[i]{
-          println!("gpr{} mismatch! ref={:#x}, dut={:#x}", i, ref_gpr[i], dut_gpr[i]);
+          println!("gpr{}({}) mismatch! ref={:#x}, dut={:#x}", i, gpr_name(i), ref_gpr[i], dut_gpr[i]);
           mismatch = true;
         }
       }
-
-      // ref_pc 是下一个pc, dut_pc 是该指令对应的pc, 故不检查
-      //if ref_pc != dut_pc {
-      //  println!("pc mismatch! ref={:#x}, dut={:#x}", ref_pc, dut_pc);
-      //  mismatch = true;
-      //}
 
       //check csr
       for i in 0..18 {
@@ -304,12 +320,13 @@ impl Driver {
       }
 
       if mismatch {
-        println!("dut pc: {:#032x}, inst: {:#016x}", dut_pc, dut_inst);
+        println!("dut pc: {:#018x}, inst: {:#010x}[{}]", dut_pc, dut_inst, "TODO");//self.disasm.disassemble(dut_inst));
         println!("ref display:");
         self.refmodule.display();
         println!("difftest mismatch!");
         self.state = SimState::Finished;
       }
+      self.pc = ref_next_pc;
     }
   }
 }

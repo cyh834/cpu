@@ -66,7 +66,7 @@ def nix_run(elfFilePath: str):
         "--no-warn-dirty",
         "--",
         f"+elf-file={elfFilePath}"
-    ] + extra_args
+    ] + extra_args + [arg for arg in sys.argv[2:] if arg != "--trace"]
     cmd = " ".join(args)
     print(f"\033[1;36m{cmd}\033[0m")
     os.system(cmd)

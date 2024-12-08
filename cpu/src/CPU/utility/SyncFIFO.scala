@@ -8,6 +8,7 @@ import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 class FIFOIO[T <: Data](private val gen: T, val useAsyncReset: Boolean) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (useAsyncReset) AsyncReset() else Bool())
+  val flush = Input(Bool())
   val wr_en = Input(Bool())
   val rd_en = Input(Bool())
   val data_in = Input(gen)
@@ -56,4 +57,11 @@ class SyncFIFO[T <: Data](gen: T, depth: Int, useAsyncReset: Boolean) extends FI
   io.full := fullReg
   io.empty := emptyReg
 
+  when(io.flush) {
+    emptyReg := true.B
+    fullReg := false.B
+    wr_ptr.value := 0.U
+    rd_ptr.value := 0.U
+    memReg.foreach(_ := 0.U.asTypeOf(gen))
+  }
 }

@@ -53,5 +53,5 @@ class ISU(val parameter: CPUParameter)
   io.out.valid := io.in.valid && (!busy | canforward.reduce(_ | _))
   io.in.ready := io.out.ready
 
-  io.scoreboard.setidx(0) := Mux(io.in.bits.rfWen, io.in.bits.ldest, 0.U)
+  io.scoreboard.setidx(0) := Mux(io.in.bits.rfWen && !io.flush && io.in.valid, io.in.bits.ldest, 0.U)
 }

@@ -15,7 +15,7 @@ class WbuInterface(parameter: CPUParameter) extends Bundle {
   val in = Flipped(DecoupledIO(new WriteBackIO(parameter)))
   val rfwrite = Vec(parameter.regfileParameter.numWritePorts, Flipped(new RfWritePort(parameter.regfileParameter)))
   val scoreboard = Flipped(new SB_WB(parameter.scoreboardParameter))
-  val redirect = new RedirectIO(parameter.VAddrBits)
+  // val redirect = new RedirectIO(parameter.VAddrBits)
   // val flush = Input(Bool())
 }
 
@@ -33,6 +33,6 @@ class WBU(val parameter: CPUParameter)
 
   io.scoreboard.clearidx := Mux(io.in.fire, io.in.bits.wb.addr, 0.U)
 
-  io.redirect.target := io.in.bits.redirect.target
-  io.redirect.valid := io.in.bits.redirect.valid & io.in.valid
+  // io.redirect.target := io.in.bits.redirect.target
+  // io.redirect.valid := io.in.bits.redirect.valid & io.in.valid
 }

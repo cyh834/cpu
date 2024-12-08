@@ -121,6 +121,8 @@ class BPUInterface(parameter: BPUParameter) extends Bundle {
   // val in = Flipped(Valid(new BPUReq(parameter)))
   val out = Decoupled(new PredictIO(parameter.vaddrBits))
   val update = Input(Flipped(new BPUUpdate(parameter)))
+  val flush_rvc = Input(Bool())
+  val flush_pc = Input(UInt(parameter.vaddrBits.W))
 }
 
 @instantiable
@@ -135,7 +137,14 @@ class BPU(val parameter: BPUParameter)
   // pc
   val pc = RegInit(parameter.resetVector.U(parameter.vaddrBits.W))
   val npc = Wire(UInt(parameter.vaddrBits.W))
-  when(io.out.fire) { pc := npc }
+
+  when(io.update.btb.valid) {
+    pc := io.update.btb.bits.target
+  }.elsewhen(io.flush_rvc) {
+    pc := io.flush_pc + 2.U
+  }.elsewhen(io.out.fire) {
+    pc := npc
+  }
 
   implicit def fromUInt(pc: UInt): BTBAddr = (new BTBAddr(parameter)).fromUInt(pc)
 
@@ -177,8 +186,11 @@ class BPU(val parameter: BPUParameter)
   val brIdx = btb.hit(pc) && Mux(btbRead.brtype === Brtype.branch, pred_taken, true.B)
 
   // update pc
+  val valid = RegInit(false.B)
+  valid := true.B // 确保在时钟上升沿拉高
+
   npc := Mux(brIdx, target, pc + 4.U)
   io.out.bits.pc := pc
   io.out.bits.pred_taken := brIdx
-  io.out.valid := true.B
+  io.out.valid := valid && !io.flush && !io.flush_rvc
 }

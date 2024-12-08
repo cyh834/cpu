@@ -16,7 +16,7 @@ import amba.axi4._
 
 class WriteBackIO(parameter: CPUParameter) extends Bundle {
   val wb = new RfWritePort(parameter.regfileParameter)
-  val redirect = new RedirectIO(parameter.VAddrBits)
+  // val redirect = new RedirectIO(parameter.VAddrBits)
 
   // debug
   val instr = UInt(32.W)
@@ -39,6 +39,8 @@ class EXUInterface(parameter: CPUParameter) extends Bundle {
   val load = new LoadInterface(parameter)
   val store = new StoreInterface(parameter)
   val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
+  val redirect_pc = Input(UInt(parameter.VAddrBits.W))
+  val redirect_flush = Output(Bool())
 
   val probe = Output(Probe(new EXUProbe(parameter), layers.Verification))
 }
@@ -99,7 +101,7 @@ class EXU(val parameter: CPUParameter)
     )
   )
 
-  io.out.valid := io.in.valid && !io.flush && (lsu.out_valid || !islsu)
+  io.out.valid := io.in.valid && (lsu.out_valid || !islsu)
   io.in.ready := io.out.ready
 
   // target
@@ -108,8 +110,8 @@ class EXU(val parameter: CPUParameter)
   val mistarget = MuxCase(
     false.B,
     Array(
-      isJmp -> jmp.mistarget,
-      isBrh -> brh.mispredict
+      isJmp -> ((io.redirect_pc =/= jmp.target) && !jmp.isAuipc),
+      isBrh -> (io.redirect_pc =/= brh.target)
     )
   )
   val target = MuxCase(
@@ -119,9 +121,10 @@ class EXU(val parameter: CPUParameter)
       isBrh -> brh.target
     )
   )
-  io.out.bits.redirect.target := target
-  io.out.bits.redirect.valid := mistarget
+  // io.out.bits.redirect.target := target
+  // io.out.bits.redirect.valid := mistarget
   // io.out.bits.redirect.realtaken := brh.taken
+  io.redirect_flush := mistarget && io.out.fire
 
   // forward
   io.forward.rfDest := io.in.bits.ldest
@@ -136,11 +139,11 @@ class EXU(val parameter: CPUParameter)
   io.bpuUpdate.btb.bits.pc := io.in.bits.pc
   io.bpuUpdate.btb.bits.target := target
   io.bpuUpdate.btb.bits.brtype := brtype
-  io.bpuUpdate.btb.valid := isJmp || isBrh
+  io.bpuUpdate.btb.valid := mistarget
 
   io.bpuUpdate.ras.bits.brtype := brtype
   io.bpuUpdate.ras.bits.isRVC := io.in.bits.isRVC
-  io.bpuUpdate.ras.valid := Brtype.isRas(brtype)
+  io.bpuUpdate.ras.valid := Brtype.isRas(brtype) & io.out.fire
 
   io.out.bits.instr := io.in.bits.instr
   io.out.bits.isRVC := io.in.bits.isRVC

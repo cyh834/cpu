@@ -13,6 +13,7 @@ class InstUncacheInterface(useAsyncReset: Boolean, parameter: AXI4BundleParamete
   val clock = Input(Clock())
   val reset = Input(if (useAsyncReset) AsyncReset() else Bool())
   val flush = Input(Bool())
+  val flush_rvc = Input(Bool())
   val req = Flipped(Decoupled(new PredictIO(vaddrBits)))
   val resp = Decoupled(new IFUReq(dataBits, vaddrBits))
   val mem = AXI4(parameter)
@@ -24,19 +25,30 @@ class InstUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter, vaddrB
     with ImplicitReset {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
+
+  val CntSize = 8
+  val cnt = RegInit(0.U(log2Up(CntSize).W))
+  when(io.mem.ar.fire && !io.mem.r.fire) {
+    cnt := cnt + 1.U
+  }
+  when(io.mem.r.fire && !io.mem.ar.fire) {
+    cnt := cnt - 1.U
+  }
+  assert(cnt < (CntSize - 1).U, "Uncache: cnt overflow")
+
   val needFlush = RegInit(false.B)
-  when(io.flush) {
+  when(io.flush || io.flush_rvc) {
     needFlush := true.B
   }
-  when(io.mem.r.fire && !io.flush) {
+  when(cnt === 0.U) {
     needFlush := false.B
   }
   val id = 0.U
 
-  io.mem.ar.valid := io.req.valid && !io.flush && !io.reset.asBool
+  io.mem.ar.valid := io.req.valid && !io.flush && !io.flush_rvc && !io.reset.asBool
   io.req.ready := io.mem.ar.ready
 
-  io.mem.ar.bits.addr := io.req.bits.pc(parameter.addrWidth - 1, 0)
+  io.mem.ar.bits.addr := Cat(io.req.bits.pc(parameter.addrWidth - 1, 2), 0.U(2.W))
   io.mem.ar.bits.id := id
   io.mem.ar.bits.len := 0.U
   io.mem.ar.bits.size := 2.U

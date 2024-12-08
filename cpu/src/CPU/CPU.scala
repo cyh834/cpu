@@ -113,7 +113,8 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
 
   val ibufParameter: IBUFParameter = IBUFParameter(
     vaddrBits = VAddrBits,
-    useAsyncReset = useAsyncReset
+    useAsyncReset = useAsyncReset,
+    xlen = XLEN
   )
 
   val bpuParameter: BPUParameter = BPUParameter(
@@ -178,9 +179,11 @@ class CPU(val parameter: CPUParameter)
   backend.io.clock := io.clock
   backend.io.reset := io.reset
 
+  frontend.io.flush := backend.io.redirect_flush
   backend.io.flush := DontCare
 
-  PipelineConnect(frontend.io.out, backend.io.in, false.B, false.B)
+  // connect frontend and backend
+  PipelineConnect(frontend.io.out, backend.io.in, true.B, backend.io.redirect_flush)
   frontend.io.bpuUpdate <> backend.io.bpuUpdate
 
   io.imem <> frontend.io.imem

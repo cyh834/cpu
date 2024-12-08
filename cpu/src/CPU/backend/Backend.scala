@@ -23,6 +23,7 @@ class BackendInterface(parameter: CPUParameter) extends Bundle {
   val dmem = AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
   val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
   val flush = Input(UInt(2.W))
+  val redirect_flush = Output(Bool())
   val probe = Output(Probe(new BackendProbe(parameter), layers.Verification))
 }
 
@@ -39,16 +40,18 @@ class Backend(val parameter: CPUParameter)
   val exu = Instantiate(new EXU(parameter))
   val wbu = Instantiate(new WBU(parameter))
 
-  PipelineConnect(isu.io.out, exu.io.in, exu.io.out.fire, io.flush(0))
-  PipelineConnect(exu.io.out, wbu.io.in, true.B, io.flush(1))
+  PipelineConnect(isu.io.out, exu.io.in, exu.io.out.fire, exu.io.redirect_flush)
+  PipelineConnect(exu.io.out, wbu.io.in, true.B, false.B)
 
   isu.io.in <> io.in
   isu.io.forward <> exu.io.forward
 
-  isu.io.flush := io.flush(0)
+  isu.io.flush := exu.io.redirect_flush
+  io.redirect_flush := exu.io.redirect_flush
   exu.io.flush := io.flush(1)
 
   exu.io.bpuUpdate <> io.bpuUpdate
+  exu.io.redirect_pc := isu.io.out.bits.pc // 检查下一个pc是否正确
 
   val regfile = Instantiate(new RegFile(parameter.regfileParameter))
   regfile.io.readPorts <> isu.io.rfread
@@ -67,14 +70,14 @@ class Backend(val parameter: CPUParameter)
   layer.block(layers.Verification) {
     val probeWire: BackendProbe = Wire(new BackendProbe(parameter))
     define(io.probe, ProbeValue(probeWire))
-    probeWire.retire.valid := RegNext(wbu.io.rfwrite(0).wen)
+    probeWire.retire.valid := RegNext(wbu.io.in.fire)
     probeWire.retire.bits.inst := RegNext(wbu.io.in.bits.instr)
     probeWire.retire.bits.pc := RegNext(wbu.io.in.bits.pc)
     probeWire.retire.bits.gpr := probe.read(regfile.io.probe).gpr
     probeWire.retire.bits.csr := probe.read(exu.io.probe).csrprobe.csr
     probeWire.retire.bits.skip := false.B
     probeWire.retire.bits.is_rvc := false.B
-    probeWire.retire.bits.rfwen := true.B
+    probeWire.retire.bits.rfwen := RegNext(wbu.io.rfwrite(0).wen)
     probeWire.retire.bits.is_load := false.B
     probeWire.retire.bits.is_store := false.B
   }
