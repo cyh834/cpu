@@ -115,10 +115,11 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
 
   // Verification Logic
   val CPUProbe = probe.read(dut.io.cpuProbe)
-  val retire = CPUProbe.backendProbe.retire.bits
+  //val retire = CPUProbe.backendProbe.retire.bits
+  val retire = CPUProbe.retire.bits
   RawClockedVoidFunctionCall("retire_instruction")(
     implicitClock,
-    CPUProbe.backendProbe.retire.valid,
+    CPUProbe.retire.valid,
     retire.inst,
     retire.pc,
     retire.gpr(0),retire.gpr(1),retire.gpr(2),retire.gpr(3),retire.gpr(4),retire.gpr(5),retire.gpr(6),retire.gpr(7),

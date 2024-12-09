@@ -40,11 +40,13 @@ class StoreInterface(parameter: CPUParameter) extends Bundle {
 class LSUInterface(parameter: CPUParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
-  // execute
+  // in
   val src = Vec(2, Input(UInt(parameter.XLEN.W)))
+  val imm = Input(UInt(parameter.XLEN.W))
   val func = Input(FuOpType())
   val isStore = Input(Bool())
   val valid = Input(Bool())
+  // out
   val result = Output(UInt(parameter.XLEN.W))
   val out_valid = Output(Bool())
   // memory
@@ -62,9 +64,10 @@ class LSU(parameter: CPUParameter)
 
   val size = LSUOpType.size(io.func)
   val offset = io.src(0)(2, 0) << 3
+  val addr = io.src(0) + io.imm
 
   // load
-  io.load.req.bits.addr := io.src(0)
+  io.load.req.bits.addr := addr
   io.load.req.bits.size := size
   io.load.req.valid := !io.isStore && io.valid
 
@@ -81,13 +84,14 @@ class LSU(parameter: CPUParameter)
       )
     ) << addr(2, 0)
   }
-  io.store.req.bits.addr := io.src(0)
+  io.store.req.bits.addr := addr
   io.store.req.bits.data := io.src(1)
   io.store.req.bits.strb := mask(io.src(0), size)
   io.store.req.bits.size := size
   io.store.req.valid := io.isStore && io.valid
 
   // result
-  io.result := Mux(io.isStore, 0.U, io.load.resp.bits.data >> offset)
-  io.out_valid := io.load.resp.fire || io.store.req.fire
+  io.result := HoldUnless(io.load.resp.bits.data >> offset, io.load.resp.fire)
+
+  io.out_valid := io.load.resp.fire || (io.isStore && io.store.req.ready)
 }

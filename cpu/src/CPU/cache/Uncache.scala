@@ -48,10 +48,10 @@ class InstUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter, vaddrB
   io.mem.ar.valid := io.req.valid && !io.flush && !io.flush_rvc && !io.reset.asBool
   io.req.ready := io.mem.ar.ready
 
-  io.mem.ar.bits.addr := Cat(io.req.bits.pc(parameter.addrWidth - 1, 2), 0.U(2.W))
+  io.mem.ar.bits.addr := Cat(io.req.bits.pc(parameter.addrWidth - 1, 3), 0.U(3.W))
   io.mem.ar.bits.id := id
   io.mem.ar.bits.len := 0.U
-  io.mem.ar.bits.size := 2.U
+  io.mem.ar.bits.size := 3.U
   io.mem.ar.bits.burst := burst.INCR
   io.mem.ar.bits.lock := 0.U
   io.mem.ar.bits.cache := 0.U

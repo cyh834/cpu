@@ -1,9 +1,13 @@
 mod mem;
+use mem::*;
+
+mod uart;
+use uart::*;
 
 use anyhow;
-use mem::*;
 use tracing::{error, trace};
 
+// 抽象设备
 trait ShadowDevice: Send + Sync {
   fn new() -> Box<dyn ShadowDevice>
   where
@@ -21,8 +25,8 @@ struct ShadowBusDevice {
   device: Box<dyn ShadowDevice>,
 }
 
-const MAX_DEVICES: usize = 1;
-
+// 所有设备
+const MAX_DEVICES: usize = 2;
 pub(crate) struct ShadowBus {
   devices: [ShadowBusDevice; MAX_DEVICES],
 }
@@ -37,24 +41,30 @@ impl ShadowBus {
     Self {
       devices: [
         ShadowBusDevice {
+          base: 0x40600000,
+          size: 0x10,
+          device: Uart::<0x10>::new(),
+        },
+        ShadowBusDevice {
           base: 0x80000000,
           size: 0x08000000,
           device: MemDevice::<0x08000000>::new(),
-        }, //ShadowBusDevice {
-           //  base: 0x20000000,
-           //  size: SCALAR_SIZE,
-           //  device: MemDevice::<SCALAR_SIZE>::new(),
-           //},
-           //ShadowBusDevice {
-           //  base: 0x40000000,
-           //  size: DDR_SIZE,
-           //  device: MemDevice::<DDR_SIZE>::new(),
-           //},
-           //ShadowBusDevice {
-           //  base: 0xc0000000,
-           //  size: SRAM_SIZE,
-           //  device: MemDevice::<SRAM_SIZE>::new(),
-           //},
+        },
+        //ShadowBusDevice {
+        //  base: 0x20000000,
+        //  size: SCALAR_SIZE,
+        //  device: MemDevice::<SCALAR_SIZE>::new(),
+        //},
+        //ShadowBusDevice {
+        //  base: 0x40000000,
+        //  size: DDR_SIZE,
+        //  device: MemDevice::<DDR_SIZE>::new(),
+        //},
+        //ShadowBusDevice {
+        //  base: 0xc0000000,
+        //  size: SRAM_SIZE,
+        //  device: MemDevice::<SRAM_SIZE>::new(),
+        //},
       ],
     }
   }

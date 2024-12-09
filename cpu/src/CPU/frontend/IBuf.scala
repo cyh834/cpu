@@ -35,28 +35,15 @@ class IBUF(val parameter: IBUFParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  // 拓展 RVC 指令，返回 32 位指令
-  def expand(inst: UInt): UInt = {
-    val exp = Instantiate(new RVCExpander(RVCExpanderParameter(parameter.xlen, true)))
-    exp.io.in := inst
-    exp.io.out
-  }
-
-  // 修改输入数据
-  val t0 = Wire(new IFU2IBUF(parameter.vaddrBits))
-  t0.data := expand(io.in.bits.data)
-  t0.pc := io.in.bits.pc
-  t0.isRVC := io.in.bits.isRVC
-
   // ibuf
   val buf: Instance[SyncFIFO[IFU2IBUF]] = Instantiate(
     new SyncFIFO(new IFU2IBUF(parameter.vaddrBits), parameter.IBUFDepth, parameter.useAsyncReset)
   )
 
-  val passthrough = io.in.fire && buf.io.empty
+  val passthrough = io.in.valid && io.out.ready && buf.io.empty
   io.in.ready := !buf.io.full
-  io.out.valid := passthrough || !buf.io.empty && !io.flush
-  io.out.bits := Mux(passthrough, t0, buf.io.data_out)
+  io.out.valid := (passthrough || !buf.io.empty) && !io.flush
+  io.out.bits := Mux(passthrough, io.in.bits, buf.io.data_out)
 
   buf.io.rd_en := io.out.fire && !passthrough
   buf.io.wr_en := io.in.fire && !passthrough

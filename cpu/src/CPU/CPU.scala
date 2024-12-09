@@ -12,6 +12,7 @@ import org.chipsalliance.rvdecoderdb.Instruction
 import amba.axi4._
 import cpu.frontend._
 import cpu.backend._
+import cpu.cache._
 import cpu.frontend.decoder._
 import utility._
 
@@ -139,7 +140,8 @@ class Retire extends Bundle {
 }
 
 class CPUProbe(parameter: CPUParameter) extends Bundle {
-  val backendProbe: BackendProbe = new BackendProbe(parameter)
+  //val backendProbe: BackendProbe = new BackendProbe(parameter)
+  val retire: Valid[Retire] = Valid(new Retire)
 }
 
 /** Metadata of [[CPU]]. */
@@ -172,31 +174,151 @@ class CPU(val parameter: CPUParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  val frontend: Instance[Frontend] = Instantiate(new Frontend(parameter))
-  val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
-  frontend.io.clock := io.clock
-  frontend.io.reset := io.reset
-  backend.io.clock := io.clock
-  backend.io.reset := io.reset
+  val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
+  val instUncache: Instance[InstUncache] = Instantiate(
+    new InstUncache(
+      parameter.useAsyncReset,
+      parameter.instructionFetchParameter,
+      parameter.VAddrBits,
+      parameter.DataBits
+    )
+  )
+  val ifu:  Instance[IFU]  = Instantiate(new IFU(parameter))
+  val ibuf: Instance[IBUF] = Instantiate(new IBUF(parameter.ibufParameter))
+  val idu:  Instance[IDU]  = Instantiate(new IDU(parameter.iduParameter))
+  val isu:  Instance[ISU]  = Instantiate(new ISU(parameter))
+  val exu:  Instance[EXU]  = Instantiate(new EXU(parameter))
+  val wbu:  Instance[WBU]  = Instantiate(new WBU(parameter))
 
-  frontend.io.flush := backend.io.redirect_flush
-  backend.io.flush := DontCare
+  val flush_redirect = Wire(Bool())
+  val flush_rvc = Wire(Bool())
+  // ==========================================================
+  // BPU  IFU → IBUF → IDU → ISU → EXU → WBU
+  //  ↓    ↑                       ↓↑
+  // instUncache                dataUncache
+  //    ↓↑                         ↓↑
+  //   imem                       dmem
+  // ==========================================================
 
-  // connect frontend and backend
-  PipelineConnect(frontend.io.out, backend.io.in, true.B, backend.io.redirect_flush)
-  frontend.io.bpuUpdate <> backend.io.bpuUpdate
+  bpu.io.out <> instUncache.io.req
+  instUncache.io.mem <> io.imem
+  ifu.io.in <> instUncache.io.resp
+  ibuf.io.in <> ifu.io.out
+  PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, flush_redirect)
+  PipelineConnect(idu.io.out, isu.io.in, isu.io.out.fire, flush_redirect)
+  PipelineConnect(isu.io.out, exu.io.in, exu.io.out.fire, flush_redirect)
+  PipelineConnect(exu.io.out, wbu.io.in, true.B, false.B)
 
-  io.imem <> frontend.io.imem
-  io.dmem <> backend.io.dmem
+  // flush
+  flush_redirect := exu.io.redirect_flush
+  flush_rvc := ifu.io.flush_rvc
+
+  bpu.io.flush := flush_redirect
+  bpu.io.flush_rvc := flush_rvc
+  bpu.io.flush_pc := ifu.io.flush_pc
+  instUncache.io.flush := flush_redirect
+  instUncache.io.flush_rvc := flush_rvc
+  ifu.io.flush := flush_redirect
+  ibuf.io.flush := flush_redirect
+  isu.io.flush := flush_redirect
+  exu.io.flush := false.B
+
+  // bypass
+  bpu.io.update <> exu.io.bpuUpdate
+  isu.io.forward <> exu.io.forward
+  exu.io.redirect_pc := isu.io.out.bits.pc // 检查下一个pc是否正确
+
+  val regfile = Instantiate(new RegFile(parameter.regfileParameter))
+  regfile.io.readPorts <> isu.io.rfread
+  regfile.io.writePorts <> wbu.io.rfwrite
+
+  val scoreboard = Instantiate(new ScoreBoard(parameter.scoreboardParameter))
+  scoreboard.io.isu <> isu.io.scoreboard
+  scoreboard.io.wb <> wbu.io.scoreboard
+
+  val dataUncache = Instantiate(new DataUncache(parameter))
+  dataUncache.io.flush := false.B
+  dataUncache.io.load <> exu.io.load
+  dataUncache.io.store <> exu.io.store
+  io.dmem <> dataUncache.io.mem
 
   layer.block(layers.Verification) {
-    // Assign Probe
     val probeWire: CPUProbe = Wire(new CPUProbe(parameter))
     define(io.cpuProbe, ProbeValue(probeWire))
-    probeWire.backendProbe := probe.read(backend.io.probe)
+    probeWire.retire.valid := RegNext(wbu.io.in.fire)
+    probeWire.retire.bits.inst := RegNext(wbu.io.in.bits.instr)
+    probeWire.retire.bits.pc := RegNext(wbu.io.in.bits.pc)
+    probeWire.retire.bits.gpr := probe.read(regfile.io.probe).gpr
+    probeWire.retire.bits.csr := probe.read(exu.io.probe).csrprobe.csr
+    probeWire.retire.bits.skip := RegNext(wbu.io.in.bits.skip)
+    probeWire.retire.bits.is_rvc := RegNext(wbu.io.in.bits.isRVC)
+    probeWire.retire.bits.rfwen := RegNext(wbu.io.rfwrite(0).wen)
+    probeWire.retire.bits.is_load := RegNext(wbu.io.in.bits.is_load)
+    probeWire.retire.bits.is_store := RegNext(wbu.io.in.bits.is_store)
   }
+
+  // TODO: dirty
+  bpu.io.clock := io.clock
+  bpu.io.reset := io.reset
+  ifu.io.clock := io.clock
+  ifu.io.reset := io.reset
+  ibuf.io.clock := io.clock
+  ibuf.io.reset := io.reset
+  idu.io.clock := io.clock
+  idu.io.reset := io.reset
+  instUncache.io.clock := io.clock
+  instUncache.io.reset := io.reset
+  isu.io.clock := io.clock
+  isu.io.reset := io.reset
+  exu.io.clock := io.clock
+  exu.io.reset := io.reset
+  wbu.io.clock := io.clock
+  wbu.io.reset := io.reset
+  regfile.io.clock := io.clock
+  regfile.io.reset := io.reset
+  scoreboard.io.clock := io.clock
+  scoreboard.io.reset := io.reset
+  dataUncache.io.clock := io.clock
+  dataUncache.io.reset := io.reset
 
   // Assign Metadata
   val omInstance: Instance[CPUOM] = Instantiate(new CPUOM(parameter))
   io.om := omInstance.getPropertyReference.asAnyClassType
 }
+//@instantiable
+//class CPU(val parameter: CPUParameter)
+//    extends FixedIORawModule(new CPUInterface(parameter))
+//    with SerializableModule[CPUParameter]
+//    with ImplicitClock
+//    with ImplicitReset {
+//  override protected def implicitClock: Clock = io.clock
+//  override protected def implicitReset: Reset = io.reset
+//
+//  val frontend: Instance[Frontend] = Instantiate(new Frontend(parameter))
+//  val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
+//  frontend.io.clock := io.clock
+//  frontend.io.reset := io.reset
+//  backend.io.clock := io.clock
+//  backend.io.reset := io.reset
+//
+//  frontend.io.flush := backend.io.redirect_flush
+//  backend.io.flush := DontCare
+//
+//  // connect frontend and backend
+//  PipelineConnect(frontend.io.out, backend.io.in, true.B, backend.io.redirect_flush)
+//  frontend.io.bpuUpdate <> backend.io.bpuUpdate
+//
+//  io.imem <> frontend.io.imem
+//  io.dmem <> backend.io.dmem
+//
+//  layer.block(layers.Verification) {
+//    // Assign Probe
+//    val probeWire: CPUProbe = Wire(new CPUProbe(parameter))
+//    define(io.cpuProbe, ProbeValue(probeWire))
+//    probeWire.backendProbe := probe.read(backend.io.probe)
+//  }
+//
+//  // Assign Metadata
+//  val omInstance: Instance[CPUOM] = Instantiate(new CPUOM(parameter))
+//  io.om := omInstance.getPropertyReference.asAnyClassType
+//}
