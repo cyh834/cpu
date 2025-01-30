@@ -16,7 +16,7 @@ import amba.axi4._
 
 class WriteBackIO(parameter: CPUParameter) extends Bundle {
   val wb = new RfWritePort(parameter.regfileParameter)
-  // val redirect = new RedirectIO(parameter.VAddrBits)
+  val redirect = new RedirectIO(parameter.VAddrBits)
 
   // debug
   val instr = UInt(32.W)
@@ -43,7 +43,6 @@ class EXUInterface(parameter: CPUParameter) extends Bundle {
   val store = new StoreInterface(parameter)
   val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
   val redirect_pc = Input(UInt(parameter.VAddrBits.W))
-  val redirect_flush = Output(Bool())
 
   val probe = Output(Probe(new EXUProbe(parameter), layers.Verification))
 }
@@ -90,7 +89,7 @@ class EXU(val parameter: CPUParameter)
   lsu.imm := io.in.bits.imm
   lsu.func := fuOpType
   lsu.isStore := FuType.isstu(fuType)
-  lsu.valid := (state === s_idle) && islsu
+  lsu.valid := (state === s_idle) && islsu && !io.flush
   io.load <> lsu.load
   io.store <> lsu.store
 
@@ -132,10 +131,9 @@ class EXU(val parameter: CPUParameter)
       isBrh -> brh.target
     )
   )
-  // io.out.bits.redirect.target := target
-  // io.out.bits.redirect.valid := mistarget
+  io.out.bits.redirect.target := target
+  io.out.bits.redirect.valid := mistarget
   // io.out.bits.redirect.realtaken := brh.taken
-  io.redirect_flush := mistarget && io.out.fire
 
   // forward
   io.forward.rfDest := io.in.bits.ldest
@@ -165,12 +163,15 @@ class EXU(val parameter: CPUParameter)
       FuType.stu -> lsu.result
     )
   )
+
+  //test
   io.out.bits.instr := io.in.bits.instr
   io.out.bits.isRVC := io.in.bits.isRVC
   io.out.bits.pc := io.in.bits.pc
   io.out.bits.is_load := FuType.isldu(fuType)
   io.out.bits.is_store := FuType.isstu(fuType)
-  io.out.bits.skip := false.B
+  val addr = io.in.bits.src(0) + io.in.bits.imm
+  io.out.bits.skip := islsu && (addr >= 0x40600000.U && addr < 0x40600010.U) // Uart
 
   layer.block(layers.Verification) {
     val probeWire: EXUProbe = Wire(new EXUProbe(parameter))

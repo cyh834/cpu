@@ -5,63 +5,83 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-class FIFOIO[T <: Data](private val gen: T, val useAsyncReset: Boolean) extends Bundle {
+class FIFOIO[T <: Data](private val gen: T, val depth: Int, val maxReadNum: Int, val maxWriteNum: Int, val useAsyncReset: Boolean) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (useAsyncReset) AsyncReset() else Bool())
   val flush = Input(Bool())
+
   val wr_en = Input(Bool())
+  val wr_num = Input(UInt(maxWriteNum.W)) // 一次性写入的数量
+  val data_in = Input(Vec(maxWriteNum, gen))
+
   val rd_en = Input(Bool())
-  val data_in = Input(gen)
-  val data_out = Output(gen)
-  val full = Output(Bool())
-  val empty = Output(Bool())
+  val rd_num = Input(UInt(maxReadNum.W)) // 一次性读取的数量
+  val data_out = Output(Vec(maxReadNum, gen))
+
+  // 剩余写入空间
+  val remaining_write_space = Output(UInt(log2Up(depth).W))
+  // 剩余读取空间
+  val remaining_read_space = Output(UInt(log2Up(depth).W))
 }
 
-abstract class FIFO[T <: Data](gen: T, depth: Int, useAsyncReset: Boolean = false)
-    extends FixedIORawModule(new FIFOIO(gen, useAsyncReset))
+abstract class FIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum: Int, useAsyncReset: Boolean = false)
+    extends FixedIORawModule(new FIFOIO(gen, depth, maxReadNum, maxWriteNum, useAsyncReset))
     with ImplicitClock
     with ImplicitReset {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
   assert(depth > 0, "Number of buffer elements needs to be larger than 0")
+  assert((depth & (depth - 1)) == 0, "Depth must be a power of 2")
+  assert(maxReadNum > 0, "Number of read elements needs to be larger than 0")
+  assert(maxReadNum <= depth, "Number of read elements needs to be less than or equal to the depth")
+  assert(maxWriteNum > 0, "Number of write elements needs to be larger than 0")
+  assert(maxWriteNum <= depth, "Number of write elements needs to be less than or equal to the depth")
 }
 
 @instantiable
-class SyncFIFO[T <: Data](gen: T, depth: Int, useAsyncReset: Boolean) extends FIFO(gen, depth, useAsyncReset) {
+class SyncFIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum: Int, useAsyncReset: Boolean) extends FIFO(gen, depth, maxReadNum, maxWriteNum, useAsyncReset) {
 
   val memReg = Reg(Vec(depth, gen)) // the register based memory
 
-  val wr_ptr = Counter(depth) // fifo write pointer
-  val rd_ptr = Counter(depth) // fifo read pointer
+  val wr_ptr = RegInit(0.U(log2Up(depth).W)) // fifo write pointer
+  val rd_ptr = RegInit(0.U(log2Up(depth).W)) // fifo read pointer
+  val fifo_counter = RegInit(0.U(log2Up(depth + 1).W)) // fifo counter
 
-  val fullReg = RegInit(false.B) // fifo full flag
-  val emptyReg = RegInit(true.B) // fifo empty flag
+  // Calculate remaining space
+  val rdrs = fifo_counter
+  val wrrs = depth.U - fifo_counter
 
-  // if write enable and fifo is not full, increment write pointer
-  when(io.wr_en && !io.full) {
-    memReg(wr_ptr.value) := io.data_in
-    emptyReg := false.B
-    fullReg := (wr_ptr.value + 1.U) === rd_ptr.value
-    wr_ptr.inc()
+  // if write enable and fifo has enough space, increment write pointer
+  when(io.wr_en && wrrs >= io.wr_num) {
+    for (i <- 0 until maxWriteNum) {
+      when(i < io.wr_num) {
+        memReg(wr_ptr.value + i) := io.data_in(i)
+      }
+    }
+    wr_ptr := wr_ptr + io.wr_num
   }
 
-  // if read enable and fifo is not empty, increment read pointer
-  when(io.rd_en && !io.empty) {
-    fullReg := false.B
-    emptyReg := (rd_ptr.value + 1.U) === wr_ptr.value
-    rd_ptr.inc()
+  io.data_out := 0.U.asTypeOf(Vec(maxReadNum, gen)) // default value
+  // if read enable and fifo has enough data, increment read pointer
+  when(io.rd_en && rdrs >= io.rd_num) {
+    for (i <- 0 until maxReadNum) {
+      when(i < io.rd_num) {
+        io.data_out(i) := memReg(rd_ptr.value + i)
+      }
+    }
+    rd_ptr := rd_ptr + io.rd_num
   }
 
-  io.data_out := memReg(rd_ptr.value)
-  io.full := fullReg
-  io.empty := emptyReg
+  fifo_counter := fifo_counter + Mux(io.wr_en && wrrs >= io.wr_num, io.wr_num, 0.U) - Mux(io.rd_en && rdrs >= io.rd_num, io.rd_num, 0.U)
+
+  io.remaining_write_space := wrrs
+  io.remaining_read_space := rdrs
 
   when(io.flush) {
-    emptyReg := true.B
-    fullReg := false.B
     wr_ptr.value := 0.U
     rd_ptr.value := 0.U
+    fifo_counter := 0.U
     memReg.foreach(_ := 0.U.asTypeOf(gen))
   }
 }

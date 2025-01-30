@@ -119,10 +119,12 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
   )
 
   val bpuParameter: BPUParameter = BPUParameter(
-    xlen = XLEN,
-    vaddrBits = VAddrBits,
+    NRbtb = 512,
+    NRras = 16,
+    fetchWidth = 8,
+    useCompressed = usingCompressed,
     useAsyncReset = useAsyncReset,
-    resetVector = ResetVector
+    vaddrBits = VAddrBits
   )
 }
 
@@ -174,7 +176,7 @@ class CPU(val parameter: CPUParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
+  //val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
   val instUncache: Instance[InstUncache] = Instantiate(
     new InstUncache(
       parameter.useAsyncReset,
@@ -190,41 +192,34 @@ class CPU(val parameter: CPUParameter)
   val exu:  Instance[EXU]  = Instantiate(new EXU(parameter))
   val wbu:  Instance[WBU]  = Instantiate(new WBU(parameter))
 
-  val flush_redirect = Wire(Bool())
-  val flush_rvc = Wire(Bool())
+  val flush = wbu.io.redirect.valid
+
   // ==========================================================
-  // BPU  IFU → IBUF → IDU → ISU → EXU → WBU
-  //  ↓    ↑                       ↓↑
-  // instUncache                dataUncache
+  //  IFU → IBUF → IDU → ISU → EXU → WBU
+  //  ↓↑                       ↓↑
+  // instUncache              dataUncache
   //    ↓↑                         ↓↑
   //   imem                       dmem
   // ==========================================================
 
-  bpu.io.out <> instUncache.io.req
-  instUncache.io.mem <> io.imem
-  ifu.io.in <> instUncache.io.resp
+  // bpu.io.out <> instUncache.io.req
+  ifu.io.imem <> instUncache.io.in
+  instUncache.io.out <> io.imem
   ibuf.io.in <> ifu.io.out
-  PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, flush_redirect)
-  PipelineConnect(idu.io.out, isu.io.in, isu.io.out.fire, flush_redirect)
-  PipelineConnect(isu.io.out, exu.io.in, exu.io.out.fire, flush_redirect)
-  PipelineConnect(exu.io.out, wbu.io.in, true.B, false.B)
+  PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, flush)
+  PipelineConnect(idu.io.out, isu.io.in, isu.io.out.fire, flush)
+  PipelineConnect(isu.io.out, exu.io.in, exu.io.out.fire, flush)
+  PipelineConnect(exu.io.out, wbu.io.in, true.B, flush)
 
-  // flush
-  flush_redirect := exu.io.redirect_flush
-  flush_rvc := ifu.io.flush_rvc
+  ifu.io.bpuUpdate <> exu.io.bpuUpdate
+  ifu.io.redirect <> wbu.io.redirect
 
-  bpu.io.flush := flush_redirect
-  bpu.io.flush_rvc := flush_rvc
-  bpu.io.flush_pc := ifu.io.flush_pc
-  instUncache.io.flush := flush_redirect
-  instUncache.io.flush_rvc := flush_rvc
-  ifu.io.flush := flush_redirect
-  ibuf.io.flush := flush_redirect
-  isu.io.flush := flush_redirect
-  exu.io.flush := false.B
+  instUncache.io.flush := flush || ifu.io.flush_uncache
+  ibuf.io.flush := flush
+  isu.io.flush := flush
+  exu.io.flush := flush
 
   // bypass
-  bpu.io.update <> exu.io.bpuUpdate
   isu.io.forward <> exu.io.forward
   exu.io.redirect_pc := isu.io.out.bits.pc // 检查下一个pc是否正确
 
@@ -237,10 +232,10 @@ class CPU(val parameter: CPUParameter)
   scoreboard.io.wb <> wbu.io.scoreboard
 
   val dataUncache = Instantiate(new DataUncache(parameter))
-  dataUncache.io.flush := false.B
+  dataUncache.io.flush := flush
   dataUncache.io.load <> exu.io.load
   dataUncache.io.store <> exu.io.store
-  io.dmem <> dataUncache.io.mem
+  io.dmem <> dataUncache.io.out
 
   layer.block(layers.Verification) {
     val probeWire: CPUProbe = Wire(new CPUProbe(parameter))
@@ -258,8 +253,6 @@ class CPU(val parameter: CPUParameter)
   }
 
   // TODO: dirty
-  bpu.io.clock := io.clock
-  bpu.io.reset := io.reset
   ifu.io.clock := io.clock
   ifu.io.reset := io.reset
   ibuf.io.clock := io.clock

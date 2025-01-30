@@ -61,8 +61,9 @@ pub(crate) struct Driver {
 
   pub(crate) dlen: u32,
 
-  //disasm: Disasm
   pc: u64,
+  skip: bool,
+  //disasm: Disasm
 }
 
 static MAX_TIME: u64 = 10000;
@@ -92,6 +93,7 @@ impl Driver {
       state: SimState::Running,
       dlen: 64,
       pc: 0x8000_0000,
+      skip: false,
       //disasm: Disasm::new(),
     };
     self_
@@ -272,13 +274,17 @@ impl Driver {
     #[cfg(feature = "difftest")]
     {
       use crate::ref_module::{csr_name, gpr_name};
-      let ref_event = self.refmodule.step();
 
       if dut.skip {
-        let event = NemuEvent { gpr: dut.gpr, csr: dut.csr, pc: dut.pc};
-        self.refmodule.override_event(event);
+        self.skip = true;
         return;
       }
+      if self.skip {
+        let event = NemuEvent { gpr: dut.gpr, csr: dut.csr, pc: dut.pc};
+        self.refmodule.override_event(event);
+      }
+
+      let ref_event = self.refmodule.step();
 
       let mut mismatch = false;
       let ref_next_pc = ref_event.pc;
@@ -291,9 +297,11 @@ impl Driver {
       let dut_inst = dut.inst;
 
       //check pc
-      if self.pc != dut_pc {
-        println!("pc mismatch! ref={:#x}, dut={:#x}", self.pc, dut_pc);
-        mismatch = true;
+      if !self.skip {
+        if self.pc != dut_pc {
+          println!("pc mismatch! ref={:#x}, dut={:#x}", self.pc, dut_pc);
+          mismatch = true;
+        }
       }
 
       //check gpr
@@ -327,6 +335,7 @@ impl Driver {
         self.state = SimState::Finished;
       }
       self.pc = ref_next_pc;
+      self.skip = false;
     }
   }
 }
