@@ -24,14 +24,4 @@ class IFU2IBUF(VAddrBits: Int) extends Bundle {
   val instValid = UInt(4.W)
 }
 
-/** IBUF */
-class IBUF2IDU(VAddrBits: Int) extends Bundle {
-    val pc = UInt(VAddrBits.W)
-    val inst = UInt(32.W)
-    val isRVC = Bool()
-
-    // debug
-    val compressedInst = UInt(16.W)
-}
-
 /** IDU */

@@ -52,7 +52,7 @@ class IFU(val parameter: CPUParameter)
   // pc
   val pc = RegInit(parameter.ResetVector.U(parameter.VAddrBits.W))
   val pcInstValid = RegInit("b1111".U)
-  val pcUpdate = io.redirect.valid || io.req.fire
+  val pcUpdate = io.redirect.valid || io.imem.req.fire
 
   // sequence next pc
   val snpc = Cat(pc(parameter.VAddrBits-1, 3), 0.U(3.W)) + 8.U //+ CacheReadWidth.U
@@ -76,7 +76,7 @@ class IFU(val parameter: CPUParameter)
   val pnpc = Mux(crosslineJump, snpc, bpu.io.out.bits.pc)
 
   // next pc
-  npc := MuxCase(
+  val npc = MuxCase(
     snpc,
     Array(
       io.redirect.valid -> io.redirect.target,
@@ -89,12 +89,12 @@ class IFU(val parameter: CPUParameter)
   bpu.io.reset := io.reset
   bpu.io.flush := false.B
   bpu.io.in.bits.pc := npc
-  bpu.io.in.valid := io.req.fire
+  bpu.io.in.valid := io.imem.req.fire
   bpu.io.update <> io.bpuUpdate
 
   val brIdx = Wire(UInt(4.W))
   // predicted branch position index, 4 bit vector
-  val pbrIdx = bpu.io.out.bits.brIdx | (crosslineJump << 3)
+  val pbrIdx = bpu.io.out.bits.brIdx.asUInt | (crosslineJump << 3)
   brIdx := Mux(io.redirect.valid, 0.U, Mux(state === s_crosslineJump, 0.U, pbrIdx))
 
   io.imem.req.valid := io.out.ready || io.redirect.valid
@@ -120,12 +120,14 @@ class IFU(val parameter: CPUParameter)
   //}
 
   // 得到指令
-  io.resp.ready := io.out.ready
+  io.imem.resp.ready := io.out.ready
   io.out.bits.pc := io.imem.resp.bits.pc
-  io.out.bits.inst := io.imem.resp.bits.data
+  io.out.bits.inst := io.imem.resp.bits.inst
   io.out.bits.brIdx := io.imem.resp.bits.brIdx
   io.out.bits.instValid := io.imem.resp.bits.instValid
   io.out.valid := io.imem.resp.fire
+
+  io.flush_uncache := false.B
   //// TODO: 一次取指保留多个指令
   //val offset = io.resp.bits.pc(2, 1) << 4
   //val inst = io.resp.bits.data >> offset

@@ -7,7 +7,7 @@ import amba.axi4._
 import amba.axi4.AXI4Parameters._
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 import cpu.backend.fu._
-import cpu.frontend
+import cpu.frontend._
 
 class InstUncacheInterface(useAsyncReset: Boolean, parameter: AXI4BundleParameter, vaddrBits: Int, dataBits: Int)
     extends Bundle {
@@ -78,8 +78,10 @@ class InstUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter, vaddrB
   io.in.resp.valid := io.out.r.valid && !flush
   io.out.r.ready := flush || io.in.resp.ready
 
-  io.in.resp.bits.data := io.out.r.bits.data
+  io.in.resp.bits.inst := io.out.r.bits.data
   io.in.resp.bits.pc := RegEnable(io.in.req.bits.pc, io.out.ar.fire)
+  io.in.resp.bits.brIdx := RegEnable(io.in.req.bits.brIdx, io.out.ar.fire)
+  io.in.resp.bits.instValid := RegEnable(io.in.req.bits.instValid, io.out.ar.fire)
   // io.in.resp.bits.pred_taken := RegEnable(io.in.req.bits.pred_taken, io.out.ar.fire)
 }
 

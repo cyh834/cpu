@@ -19,7 +19,7 @@ case class RVCExpanderParameter(xlen: Int, usingCompressed: Boolean) extends Ser
 }
 
 class RVCExpanderInterface(parameter: RVCExpanderParameter) extends Bundle {
-  val in = Input(UInt(parameter.xlen.W))
+  val in = Input(UInt(16.W))
   val out = Output(UInt(32.W))
 }
 

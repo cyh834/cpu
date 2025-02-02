@@ -62,7 +62,7 @@ class BTB(parameter: BPUParameter) {
   private val set = parameter.set
 
   private val datatype = UInt((new BTBData(parameter)).getWidth.W)
-  private val btb = Vec(waynum, SyncReadMem(set, datatype))
+  private val btb = Seq.tabulate(waynum) { _ => SyncReadMem(set, datatype) }
 
   def read(addr: BTBAddr): Vec[BTBData] = {
     VecInit((0 to (waynum-1)).map(i => btb(i).read(addr.idx).asTypeOf(new BTBData(parameter))))
@@ -73,7 +73,12 @@ class BTB(parameter: BPUParameter) {
   }
 
   def update(addr: BTBAddr, wdata: BTBData): Unit = {
-    btb(addr.way).write(addr.idx, wdata.asTypeOf(datatype))
+    val writeEnables = (0 until waynum).map(i => addr.way === i.U)
+    writeEnables.zip(btb).foreach { case (wen, mem) =>
+      when(wen) {
+        mem.write(addr.idx, wdata.asTypeOf(datatype))
+      }
+    }
   }
 }
 
@@ -83,7 +88,7 @@ class PHT(parameter: BPUParameter) {
   private val waynum = parameter.waynum
   private val set = parameter.set
 
-  private val pht = Vec(waynum, Mem(set, UInt(2.W)))
+  private val pht = Seq.tabulate(waynum)(_ => Mem(set, UInt(2.W)))
 
   def value(addr: BTBAddr): Vec[UInt] = VecInit((0 to (waynum-1)).map(i => pht(i).read(addr.idx)))
   def taken(addr: BTBAddr): Vec[Bool] = VecInit((0 to (waynum-1)).map(i => value(addr)(i)(1)))
@@ -91,8 +96,12 @@ class PHT(parameter: BPUParameter) {
     val oldtaken = value(addr)(addr.way)
     val newtaken = Mux(realtaken, oldtaken + 1.U, oldtaken - 1.U)
     val wen = (realtaken && (oldtaken =/= "b11".U)) || (!realtaken && (oldtaken =/= "b00".U))
-
-    when(wen) { pht(addr.way).write(addr.idx, newtaken) }
+    val writeEnables = (0 until waynum).map(i => addr.way === i.U)
+    writeEnables.zip(pht).foreach { case (wen, mem) =>
+      when(wen) {
+        mem.write(addr.idx, newtaken)
+      }
+    }
   }
 }
 
@@ -160,7 +169,7 @@ class BPUInterface(parameter: BPUParameter) extends Bundle {
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
   val flush = Input(Bool())
   val in = Flipped(Valid(new BPUReq(parameter)))
-  val out = Valid(new PredictIO(parameter.vaddrBits))
+  val out = Valid(new PredictIO(parameter))
   val update = Input(Flipped(new BPUUpdate(parameter)))
 }
 
@@ -176,6 +185,7 @@ class BPU(val parameter: BPUParameter)
 
   val pc = io.in.bits.pc
   val pcLatch = RegEnable(pc, io.in.valid)
+  val waynum = parameter.waynum
 
   // BTB
   val btb = new BTB(parameter)
@@ -223,7 +233,7 @@ class BPU(val parameter: BPUParameter)
   (0 to (waynum-1)).map(i => target(i) := Mux(btbRead(i).brtype === Brtype.ret, rasTarget, btbRead(i).BTA))
   (0 to (waynum-1)).map(i => io.out.bits.brIdx(i) := btbHit(i) && pcLatchValid(i).asBool && Mux(btbRead(i).brtype === Brtype.branch, phtTaken(i), true.B))
 
-  io.out.bits.crosslineJump := btbRead(waynum - 1).crosslineJump && btbHit(waynum - 1) &&  (0 to (waynum - 2).map(i => !io.out.bits.brIdx(i))).reduce(_ && _)
+  io.out.bits.crosslineJump := btbRead(waynum - 1).crosslineJump && btbHit(waynum - 1) &&  (0 to (waynum - 2)).map(i => !io.out.bits.brIdx(i)).reduce(_ && _)
   io.out.bits.pc := PriorityMux(io.out.bits.brIdx, target)
   io.out.bits.jump := io.out.bits.brIdx.asUInt.orR
   io.out.valid := RegNext(io.in.valid)

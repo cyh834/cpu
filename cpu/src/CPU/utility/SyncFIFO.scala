@@ -55,9 +55,7 @@ class SyncFIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum: Int,
   // if write enable and fifo has enough space, increment write pointer
   when(io.wr_en && wrrs >= io.wr_num) {
     for (i <- 0 until maxWriteNum) {
-      when(i < io.wr_num) {
-        memReg(wr_ptr.value + i) := io.data_in(i)
-      }
+      memReg(wr_ptr + i.U) := io.data_in(i.U)
     }
     wr_ptr := wr_ptr + io.wr_num
   }
@@ -66,9 +64,7 @@ class SyncFIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum: Int,
   // if read enable and fifo has enough data, increment read pointer
   when(io.rd_en && rdrs >= io.rd_num) {
     for (i <- 0 until maxReadNum) {
-      when(i < io.rd_num) {
-        io.data_out(i) := memReg(rd_ptr.value + i)
-      }
+      io.data_out(i.U) := memReg(rd_ptr + i.U)
     }
     rd_ptr := rd_ptr + io.rd_num
   }
@@ -79,8 +75,8 @@ class SyncFIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum: Int,
   io.remaining_read_space := rdrs
 
   when(io.flush) {
-    wr_ptr.value := 0.U
-    rd_ptr.value := 0.U
+    wr_ptr := 0.U
+    rd_ptr := 0.U
     fifo_counter := 0.U
     memReg.foreach(_ := 0.U.asTypeOf(gen))
   }

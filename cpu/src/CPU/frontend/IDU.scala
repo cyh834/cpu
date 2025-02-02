@@ -57,7 +57,7 @@ class DecodeIO(val parameter: IDUParameter) extends IDUBundle {
 class IDUInterface(val parameter: IDUParameter) extends IDUBundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
-  val in = Flipped(Decoupled(new IBUF2IDU(addrBits)))
+  val in = Flipped(Decoupled(new IBUF2IDU(parameter.addrBits)))
   val out = Decoupled(new DecodeIO(parameter))
 }
 

@@ -148,7 +148,9 @@ class EXU(val parameter: CPUParameter)
   io.bpuUpdate.btb.bits.pc := io.in.bits.pc
   io.bpuUpdate.btb.bits.target := target
   io.bpuUpdate.btb.bits.brtype := brtype
+  io.bpuUpdate.btb.bits.isRVC := io.in.bits.isRVC
   io.bpuUpdate.btb.valid := mistarget
+
 
   io.bpuUpdate.ras.bits.brtype := brtype
   io.bpuUpdate.ras.bits.isRVC := io.in.bits.isRVC
