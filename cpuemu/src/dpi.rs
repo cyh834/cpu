@@ -88,7 +88,7 @@ pub struct RetireData {
 // dpi functions
 //----------------------
 
-pub(crate) static mut LAST_WRITE_PC: u64 = 0;
+pub(crate) static mut LAST_WRITE_PC: u64 = 0x0;
 #[no_mangle]
 unsafe extern "C" fn axi_write(
   channel_id: c_longlong,
@@ -115,6 +115,11 @@ unsafe extern "C" fn axi_write(
   if let Some(driver) = driver.as_mut() {
     let (strobe, data) = load_from_payload(payload, driver.dlen);
     if let Err(e) = driver.axi_write(awaddr as u32, awsize as u64, &strobe, data) {
+      if awaddr as u64 == 0x4000_0000 && data[3] == 0xde && data[2] == 0xad && data[1] == 0xbe && data[0] == 0xef {
+        println!("exit by writing 0xdeadbeef to 0x40000000");
+        driver.state = SimState::GoodTrap;
+        return;
+      }
       if awaddr as u64 != LAST_WRITE_PC {
         error!("{}", e);
       }

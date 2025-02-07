@@ -230,6 +230,7 @@ class CPU(val parameter: CPUParameter)
   val scoreboard = Instantiate(new ScoreBoard(parameter.scoreboardParameter))
   scoreboard.io.isu <> isu.io.scoreboard
   scoreboard.io.wb <> wbu.io.scoreboard
+  scoreboard.io.flush := flush
 
   val dataUncache = Instantiate(new DataUncache(parameter))
   dataUncache.io.flush := flush

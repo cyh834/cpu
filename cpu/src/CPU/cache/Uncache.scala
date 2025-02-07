@@ -48,16 +48,15 @@ class InstUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter, vaddrB
   }
 
   val needFlush = RegInit(false.B)
-  when(io.flush) {
+  when(io.flush && (((state === s_idle) && io.out.ar.fire) || (state === s_busy))) {
     needFlush := true.B
-  }
-  when(state === s_idle) {
+  }.elsewhen(state === s_idle) {
     needFlush := false.B
   }
   val id = 0.U
 
   io.out.ar.valid := io.in.req.valid && (state === s_idle) && !io.reset.asBool
-  io.in.req.ready := io.out.ar.ready
+  io.in.req.ready := io.out.ar.ready && (state === s_idle) && !io.reset.asBool
 
   // 默认值
   io.out.ar.bits := 0.U.asTypeOf(new AR(parameter))
@@ -79,10 +78,10 @@ class InstUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter, vaddrB
   io.out.r.ready := flush || io.in.resp.ready
 
   io.in.resp.bits.inst := io.out.r.bits.data
-  io.in.resp.bits.pc := RegEnable(io.in.req.bits.pc, io.out.ar.fire)
-  io.in.resp.bits.brIdx := RegEnable(io.in.req.bits.brIdx, io.out.ar.fire)
-  io.in.resp.bits.instValid := RegEnable(io.in.req.bits.instValid, io.out.ar.fire)
-  // io.in.resp.bits.pred_taken := RegEnable(io.in.req.bits.pred_taken, io.out.ar.fire)
+  io.in.resp.bits.pc := RegEnable(io.in.req.bits.pc, io.in.req.fire)
+  io.in.resp.bits.brIdx := RegEnable(io.in.req.bits.brIdx, io.in.req.fire)
+  io.in.resp.bits.instValid := RegEnable(io.in.req.bits.instValid, io.in.req.fire)
+  // io.in.resp.bits.pred_taken := RegEnable(io.in.req.bits.pred_taken, io.in.ar.fire)
 }
 
 class DataUncacheInterface(parameter: CPUParameter) extends Bundle {

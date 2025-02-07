@@ -36,6 +36,7 @@ class SB_WB(parameter: ScoreBoardParameter) extends Bundle {
 class ScoreBoardInterface(parameter: ScoreBoardParameter) extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (parameter.useAsyncReset) AsyncReset() else Bool())
+  val flush = Input(Bool())
   val isu = new SB_ISU(parameter)
   val wb = new SB_WB(parameter)
 }
@@ -55,4 +56,8 @@ class ScoreBoard(val parameter: ScoreBoardParameter)
   // io.isu.isBusy :=  io.isu.lookidx.map(busy(_)).reduce(_ | _)
   for (i <- 0 until parameter.numSrc)
     io.isu.isBusy(i) := busy(io.isu.lookidx(i))
+
+  when(io.flush) {
+    busy := 0.U(parameter.regNum.W)
+  }
 }

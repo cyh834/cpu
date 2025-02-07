@@ -58,6 +58,11 @@ class IBUF(val parameter: IBUFParameter)
   enqSlots(2) := instValid(2) && !brIdx(0) && !(brIdx(1) && !isRVC(1))
   enqSlots(3) := instValid(3) && !brIdx(0) && !brIdx(1) && !(brIdx(2) && !isRVC(2))
 
+  // 计算 shift
+  val shift = Mux(enqSlots(0), 0.U, Mux(enqSlots(1), 1.U, Mux(enqSlots(2), 2.U, 3.U)))
+  val enqsize = PopCount(enqSlots);
+  val enqfire = (0 until 4).map(i => enqsize >= (i+1).U)
+
   // fifo entry
   class RingEntry extends Bundle {
     val inst = UInt(16.W)
@@ -77,17 +82,17 @@ class IBUF(val parameter: IBUFParameter)
   val wrrs = parameter.bufferDepth.U - fifo_counter
 
   // 写入环形缓冲
-  def write_fifo(idx: Int): Unit = {
-    memReg(wr_ptr + idx.U).inst := instVec(idx.U)
-    memReg(wr_ptr + idx.U).pc := io.in.bits.pc + (idx << 1).U
-    memReg(wr_ptr + idx.U).isRVC := isRVC(idx.U)
-    memReg(wr_ptr + idx.U).brIdx := brIdx(idx.U)
+  def write_fifo(idx: Int, shift: UInt): Unit = {
+    memReg(wr_ptr + idx.U).inst := instVec(idx.U + shift)
+    memReg(wr_ptr + idx.U).pc := Cat(io.in.bits.pc(parameter.vaddrBits - 1, 3),shift + idx.U, 0.U(1.W))
+    memReg(wr_ptr + idx.U).isRVC := isRVC(idx.U + shift)
+    memReg(wr_ptr + idx.U).brIdx := brIdx(idx.U + shift)
   }
   when(io.in.fire) {
     for(i <- 0 until 4) {
-      when(enqSlots(i)) { write_fifo(i) }
+      when(enqfire(i)) { write_fifo(i, shift) }
     }
-    wr_ptr := wr_ptr + PopCount(enqSlots)
+    wr_ptr := wr_ptr + enqsize
   }
 
   io.in.ready := wrrs >= 4.U
@@ -103,7 +108,7 @@ class IBUF(val parameter: IBUFParameter)
 
   io.out.valid := rdrs =/= 0.U
   io.out.bits.pc := memReg(rd_ptr).pc
-  io.out.bits.inst := Mux(memReg(rd_ptr).isRVC, expand(memReg(rd_ptr).inst), Cat(memReg(rd_ptr).inst, memReg(rd_ptr + 1.U).inst))
+  io.out.bits.inst := Mux(memReg(rd_ptr).isRVC, expand(memReg(rd_ptr).inst), Cat(memReg(rd_ptr + 1.U).inst, memReg(rd_ptr).inst))
   io.out.bits.isRVC := memReg(rd_ptr).isRVC
   io.out.bits.pred_taken := memReg(rd_ptr).brIdx
   when(io.out.fire) {

@@ -97,7 +97,7 @@ class IFU(val parameter: CPUParameter)
   val pbrIdx = bpu.io.out.bits.brIdx.asUInt | (crosslineJump << 3)
   brIdx := Mux(io.redirect.valid, 0.U, Mux(state === s_crosslineJump, 0.U, pbrIdx))
 
-  io.imem.req.valid := io.out.ready || io.redirect.valid
+  io.imem.req.valid := io.out.ready || !io.reset.asBool || !io.redirect.valid
   io.imem.req.bits.pc := pc
   io.imem.req.bits.brIdx := pcInstValid & brIdx
   io.imem.req.bits.instValid := pcInstValid
@@ -112,20 +112,13 @@ class IFU(val parameter: CPUParameter)
   ///***********************/
   //// IF2
   ////***********************/
-  //// 拓展 RVC 指令，返回 32 位指令
-  //def expand(inst: UInt): UInt = {
-  //  val exp = Instantiate(new RVCExpander(RVCExpanderParameter(parameter.XLEN, true)))
-  //  exp.io.in := inst
-  //  exp.io.out
-  //}
-
   // 得到指令
   io.imem.resp.ready := io.out.ready
   io.out.bits.pc := io.imem.resp.bits.pc
   io.out.bits.inst := io.imem.resp.bits.inst
   io.out.bits.brIdx := io.imem.resp.bits.brIdx
   io.out.bits.instValid := io.imem.resp.bits.instValid
-  io.out.valid := io.imem.resp.fire
+  io.out.valid := io.imem.resp.fire && !io.redirect.valid
 
   io.flush_uncache := false.B
   //// TODO: 一次取指保留多个指令
