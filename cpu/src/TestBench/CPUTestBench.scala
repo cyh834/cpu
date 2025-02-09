@@ -9,8 +9,7 @@ import chisel3.properties.{AnyClassType, Class, Property}
 import chisel3.util.circt.dpi.{
   RawClockedNonVoidFunctionCall,
   RawClockedVoidFunctionCall,
-  RawUnclockedNonVoidFunctionCall
-}
+  RawUnclockedNonVoidFunctionCall}
 import chisel3.util._
 
 import cpu._
@@ -65,19 +64,10 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
   io.om := omInstance.getPropertyReference.asAnyClassType
   omInstance.cpuIn := dut.io.om
 
+  // DUT
   dut.io.clock := implicitClock
   dut.io.reset := implicitReset
   dut.io.intr := 0.U
-
-  // Simulation Logic
-  val simulationTime: UInt = RegInit(0.U(64.W))
-  simulationTime := simulationTime + 1.U
-  // For each timeout ticks, check it
-  import State._
-  val watchdogCode = RawClockedNonVoidFunctionCall("sim_watchdog", UInt(8.W))(implicitClock, true.B)
-  when(watchdogCode =/= Running.asUInt) {
-    stop(cf"""{"cycle":${simulationTime}}\n""")
-  }
 
   // AXI4VIP
   val instructionFetchAXI = Module(
@@ -115,7 +105,6 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
 
   // Verification Logic
   val CPUProbe = probe.read(dut.io.cpuProbe)
-  //val retire = CPUProbe.backendProbe.retire.bits
   val retire = CPUProbe.retire.bits
   RawClockedVoidFunctionCall("retire_instruction")(
     implicitClock,
@@ -135,6 +124,28 @@ class CPUTestBench(val parameter: CPUTestBenchParameter)
     retire.is_load,
     retire.is_store
   )
+
+  // Simulation Logic
+  val simulationTime: UInt = RegInit(0.U(64.W))
+  simulationTime := simulationTime + 1.U
+  val instructionCount: UInt = RegInit(0.U(64.W))
+  when(CPUProbe.retire.valid) {
+    instructionCount := instructionCount + 1.U
+  }
+
+  // For each timeout ticks, check it
+  import State._
+  val watchdogCode = RawClockedNonVoidFunctionCall("sim_watchdog", UInt(8.W))(implicitClock, true.B)
+  when(watchdogCode =/= Running.asUInt) {
+    RawClockedVoidFunctionCall(s"calculate_ipc")(
+      implicitClock,
+      when.cond,
+      instructionCount,
+      simulationTime
+    )
+    //stop(cf"""{"cycle":${simulationTime}, "instruction":${instructionCount}, "ipc":${ipc}}\n""")
+    stop()
+  }
 }
 
 object TestVerbatimParameter {

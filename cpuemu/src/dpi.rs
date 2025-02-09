@@ -208,6 +208,15 @@ unsafe extern "C" fn sim_watchdog(reason: *mut c_char) {
   }
 }
 
+#[no_mangle]
+unsafe extern "C" fn calculate_ipc(
+  instruction_count: u64,
+  simulation_time: u64,
+) {
+  let ipc = instruction_count as f64 / simulation_time as f64;
+  println!("instruction_count: {}, simulation_time: {}, ipc: {}", instruction_count, simulation_time, ipc);
+}
+
 // 被内存布局搞晕了，先这样吧
 #[no_mangle]
 #[cfg(feature = "difftest")]
