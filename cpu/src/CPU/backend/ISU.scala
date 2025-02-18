@@ -50,8 +50,9 @@ class ISU(val parameter: CPUParameter)
 
   io.scoreboard.lookidx := io.in.bits.lsrc
 
-  io.out.valid := io.in.valid && (!busy | canforward.reduce(_ | _))
-  io.in.ready := io.out.ready && (!busy | canforward.reduce(_ | _))
+  val valid = !busy | canforward.reduce(_ & _)
+  io.out.valid := io.in.valid && valid
+  io.in.ready := io.out.ready && valid
 
   io.scoreboard.setidx(0) := Mux(io.out.bits.rfWen && !io.flush && io.out.fire, io.out.bits.ldest, 0.U)
 }

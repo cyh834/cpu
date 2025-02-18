@@ -54,9 +54,9 @@ class IBUF(val parameter: IBUFParameter)
   // 有效指令选择逻辑
   val enqSlots = Wire(Vec(4, Bool()))
   enqSlots(0) := instValid(0)
-  enqSlots(1) := instValid(1) && !(brIdx(0) && !isRVC(0))
-  enqSlots(2) := instValid(2) && !brIdx(0) && !(brIdx(1) && !isRVC(1))
-  enqSlots(3) := instValid(3) && !brIdx(0) && !brIdx(1) && !(brIdx(2) && !isRVC(2))
+  enqSlots(1) := instValid(1) && !(brIdx(0) && isRVC(0))
+  enqSlots(2) := instValid(2) && !brIdx(0) && !(brIdx(1) && isRVC(1))
+  enqSlots(3) := instValid(3) && !brIdx(0) && !brIdx(1) && !(brIdx(2) && isRVC(2))
 
   // 计算 shift
   val shift = Mux(enqSlots(0), 0.U, Mux(enqSlots(1), 1.U, Mux(enqSlots(2), 2.U, 3.U)))
@@ -106,7 +106,7 @@ class IBUF(val parameter: IBUFParameter)
     exp.io.out
   }
 
-  io.out.valid := rdrs =/= 0.U
+  io.out.valid := Mux(memReg(rd_ptr).isRVC, rdrs >= 1.U, rdrs >= 2.U)
   io.out.bits.pc := memReg(rd_ptr).pc
   io.out.bits.inst := Mux(memReg(rd_ptr).isRVC, expand(memReg(rd_ptr).inst), Cat(memReg(rd_ptr + 1.U).inst, memReg(rd_ptr).inst))
   io.out.bits.isRVC := memReg(rd_ptr).isRVC
@@ -121,5 +121,9 @@ class IBUF(val parameter: IBUFParameter)
     wr_ptr := 0.U
     rd_ptr := 0.U
     fifo_counter := 0.U
+  }
+
+  when(io.out.valid && !io.out.bits.isRVC) {
+    assert((memReg(rd_ptr).pc + 2.U) === memReg(rd_ptr + 1.U).pc, "[IBUF] pc(%d -> %d)", memReg(rd_ptr).pc, memReg(rd_ptr + 1.U).pc);
   }
 }

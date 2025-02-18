@@ -4,7 +4,7 @@
 use std::ffi::{c_char, c_longlong};
 //use std::cmp::max;
 use std::sync::Mutex;
-use tracing::debug;
+use tracing::{debug, trace};
 
 use crate::drive::Driver;
 use crate::drive::SimState;
@@ -105,7 +105,7 @@ unsafe extern "C" fn axi_write(
   payload: *const SvBitVecVal,
 ) {
   if LAST_WRITE_PC != awaddr as u64 {
-    debug!(
+    trace!(
       "axi_write (channel_id={channel_id}, awid={awid}, awaddr={awaddr:#x}, \
       awlen={awlen}, awsize={awsize}, awburst={awburst}, awlock={awlock}, awcache={awcache}, \
       awprot={awprot}, awqos={awqos}, awregion={awregion})"
@@ -115,11 +115,6 @@ unsafe extern "C" fn axi_write(
   if let Some(driver) = driver.as_mut() {
     let (strobe, data) = load_from_payload(payload, driver.dlen);
     if let Err(e) = driver.axi_write(awaddr as u32, awsize as u64, &strobe, data) {
-      if awaddr as u64 == 0x4000_0000 && data[3] == 0xde && data[2] == 0xad && data[1] == 0xbe && data[0] == 0xef {
-        println!("exit by writing 0xdeadbeef to 0x40000000");
-        driver.state = SimState::GoodTrap;
-        return;
-      }
       if awaddr as u64 != LAST_WRITE_PC {
         error!("{}", e);
       }
@@ -148,7 +143,7 @@ unsafe extern "C" fn axi_read(
 ) {
   // 防止重复打印,但dirty且不靠谱
   if LAST_READ_PC != araddr as u64 {
-    debug!(
+    trace!(
       "axi_read (channel_id={channel_id}, arid={arid}, araddr={araddr:#x}, \
       arlen={arlen}, arsize={arsize}, arburst={arburst}, arlock={arlock}, arcache={arcache}, \
       arprot={arprot}, arqos={arqos}, arregion={arregion})"
@@ -195,7 +190,13 @@ unsafe extern "C" fn sim_final() {
       SimState::BadTrap => error!("sim_final: BadTrap"),
       SimState::Running => error!("sim_final: Running"),
       SimState::Timeout => info!("sim_final: Timeout"),
-      SimState::Finished => info!("sim_final: Finished"),
+      SimState::Finished => {
+          if driver.a0 == 0 {
+              info!("sim_final: GoodTrap")
+          } else {
+              error!("sim_final: BadTrap")
+          }
+      },
     }
   }
 }
@@ -214,7 +215,7 @@ unsafe extern "C" fn calculate_ipc(
   simulation_time: u64,
 ) {
   let ipc = instruction_count as f64 / simulation_time as f64;
-  println!("instruction_count: {}, simulation_time: {}, ipc: {}", instruction_count, simulation_time, ipc);
+  info!("instruction_count: {}, simulation_time: {}, ipc: {}", instruction_count, simulation_time, ipc);
 }
 
 // 被内存布局搞晕了，先这样吧
@@ -250,7 +251,7 @@ unsafe extern "C" fn retire_instruction(
       csr16,csr17
     ];
     let retire = RetireData{inst,pc,gpr,csr,skip,is_rvc,rfwen,is_load,is_store};
-    println!("{:x?}",retire);
+    trace!("{:x?}",retire);
     driver.retire_instruction(&retire);
   }
 }

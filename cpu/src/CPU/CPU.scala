@@ -74,6 +74,7 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
   val NrPhyRegs:      Int = 32
   val LogicRegsWidth: Int = log2Up(NrPhyRegs)
   val NumSrc:         Int = 2
+  val PredictWidth:  Int = 4
 
   val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
     addrWidth = PAddrBits,
@@ -214,7 +215,7 @@ class CPU(val parameter: CPUParameter)
   ifu.io.bpuUpdate <> exu.io.bpuUpdate
   ifu.io.redirect <> wbu.io.redirect
 
-  instUncache.io.flush := flush || ifu.io.flush_uncache
+  instUncache.io.flush := flush
   ibuf.io.flush := flush
   isu.io.flush := flush
   exu.io.flush := flush
@@ -279,40 +280,3 @@ class CPU(val parameter: CPUParameter)
   val omInstance: Instance[CPUOM] = Instantiate(new CPUOM(parameter))
   io.om := omInstance.getPropertyReference.asAnyClassType
 }
-//@instantiable
-//class CPU(val parameter: CPUParameter)
-//    extends FixedIORawModule(new CPUInterface(parameter))
-//    with SerializableModule[CPUParameter]
-//    with ImplicitClock
-//    with ImplicitReset {
-//  override protected def implicitClock: Clock = io.clock
-//  override protected def implicitReset: Reset = io.reset
-//
-//  val frontend: Instance[Frontend] = Instantiate(new Frontend(parameter))
-//  val backend:  Instance[Backend] = Instantiate(new Backend(parameter))
-//  frontend.io.clock := io.clock
-//  frontend.io.reset := io.reset
-//  backend.io.clock := io.clock
-//  backend.io.reset := io.reset
-//
-//  frontend.io.flush := backend.io.redirect_flush
-//  backend.io.flush := DontCare
-//
-//  // connect frontend and backend
-//  PipelineConnect(frontend.io.out, backend.io.in, true.B, backend.io.redirect_flush)
-//  frontend.io.bpuUpdate <> backend.io.bpuUpdate
-//
-//  io.imem <> frontend.io.imem
-//  io.dmem <> backend.io.dmem
-//
-//  layer.block(layers.Verification) {
-//    // Assign Probe
-//    val probeWire: CPUProbe = Wire(new CPUProbe(parameter))
-//    define(io.cpuProbe, ProbeValue(probeWire))
-//    probeWire.backendProbe := probe.read(backend.io.probe)
-//  }
-//
-//  // Assign Metadata
-//  val omInstance: Instance[CPUOM] = Instantiate(new CPUOM(parameter))
-//  io.om := omInstance.getPropertyReference.asAnyClassType
-//}

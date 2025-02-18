@@ -83,13 +83,14 @@ class EXU(val parameter: CPUParameter)
 
   val lsu = Instantiate(new LSU(parameter)).io
   val islsu = FuType.islsu(fuType)
+  val lsu_valid = (state === s_idle) && islsu && !io.flush && io.in.valid
   lsu.clock := io.clock
   lsu.reset := io.reset
   lsu.src := io.in.bits.src
   lsu.imm := io.in.bits.imm
   lsu.func := fuOpType
   lsu.isStore := FuType.isstu(fuType)
-  lsu.valid := (state === s_idle) && islsu && !io.flush
+  lsu.valid := lsu_valid
   io.load <> lsu.load
   io.store <> lsu.store
 
@@ -97,10 +98,10 @@ class EXU(val parameter: CPUParameter)
   csr.clock := io.clock
   csr.reset := io.reset
 
-  when(io.in.fire && islsu) {
+  when(lsu_valid) {
     state := s_lsu
   }
-  when(io.out.fire) {
+  when(io.out.fire | io.flush) {
     state := s_idle
   }
 
@@ -117,20 +118,16 @@ class EXU(val parameter: CPUParameter)
   // target
   val isJmp = FuType.isjmp(fuType)
   val isBrh = FuType.isbrh(fuType)
-  val mistarget = MuxCase(
-    false.B,
-    Array(
-      isJmp -> ((io.redirect_pc =/= jmp.target) && !jmp.isAuipc),
-      isBrh -> (io.redirect_pc =/= brh.target)
-    )
-  )
   val target = MuxCase(
-    0.U,
+    io.in.bits.pc + 4.U,
     Array(
-      isJmp -> jmp.target,
-      isBrh -> brh.target
+      (isJmp && !jmp.isAuipc) -> jmp.target,
+      (isBrh && brh.taken) -> brh.target,
+      io.in.bits.isRVC -> (io.in.bits.pc + 2.U)
     )
   )
+  val mistarget = io.redirect_pc =/= target
+
   io.out.bits.redirect.target := target
   io.out.bits.redirect.valid := mistarget
   // io.out.bits.redirect.realtaken := brh.taken
@@ -150,7 +147,6 @@ class EXU(val parameter: CPUParameter)
   io.bpuUpdate.btb.bits.brtype := brtype
   io.bpuUpdate.btb.bits.isRVC := io.in.bits.isRVC
   io.bpuUpdate.btb.valid := mistarget
-
 
   io.bpuUpdate.ras.bits.brtype := brtype
   io.bpuUpdate.ras.bits.isRVC := io.in.bits.isRVC

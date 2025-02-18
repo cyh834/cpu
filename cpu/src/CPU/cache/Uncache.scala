@@ -122,10 +122,11 @@ class DataUncache(parameter: CPUParameter)
   // 写计数器
   val storeCnt = new Cnt(CntSize)
 
-  when(io.out.b.fire && !io.out.aw.fire && !io.out.w.fire) {
+  val store_fire = io.out.aw.fire && io.out.w.fire
+  when(io.out.b.fire && !store_fire) {
     storeCnt.pop()
   }
-  when(io.out.aw.fire && io.out.w.fire) {
+  when(!io.out.b.fire && store_fire) {
     storeCnt.push()
   }
 

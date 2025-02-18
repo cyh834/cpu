@@ -6,7 +6,8 @@ use std::{
 };
 
 use tracing::Level;
-use tracing_subscriber::{EnvFilter, FmtSubscriber};
+use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
+use tracing_subscriber::filter::EnvFilter;
 
 pub mod bus;
 pub mod dpi;
@@ -39,18 +40,40 @@ impl SimArgs {
     let log_level: Level = self.log_level.parse()?;
     let log_file = File::create(self.log_file.as_ref().unwrap())?;
 
-    let global_logger = FmtSubscriber::builder()
-      .with_env_filter(EnvFilter::from_default_env())
-      .with_max_level(log_level)
-      //.with_writer(Mutex::new(log_file))
-      .without_time()
-      .with_target(false)
-      .with_ansi(true)
-      .compact()
-      //.pretty()
-      .finish();
-    tracing::subscriber::set_global_default(global_logger)
-      .expect("internal error: fail to setup log subscriber");
+    // 终端输出层
+    let stdout_layer = fmt::Layer::new()
+        .with_writer(std::io::stderr)
+        .with_ansi(true)
+        .without_time()  // 禁用时间戳
+        .with_target(false)  // 移除模块路径
+        .with_filter(LevelFilter::INFO);
+
+    // 文件输出层
+    let file_layer = fmt::Layer::new()
+        .with_writer(Mutex::new(log_file))
+        .with_ansi(true)
+        .without_time()  // 禁用时间戳
+        .with_target(false)  // 移除模块路径
+        .with_filter(LevelFilter::from_level(log_level));
+
+    // mtrace
+    let mtrace = File::create("mtrace.log")?;
+    let mtrace_layer = fmt::Layer::new()
+        .with_writer(Mutex::new(mtrace))
+        .with_ansi(true)
+        .without_time()
+        .with_target(false)
+        .with_filter(
+          EnvFilter::new("cpuemu::drive=trace")
+        );
+
+
+    let subscriber = tracing_subscriber::registry()
+        .with(stdout_layer)
+        .with(file_layer)
+        .with(mtrace_layer);
+
+    tracing::subscriber::set_global_default(subscriber)?;
     Ok(())
   }
 

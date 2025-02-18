@@ -40,7 +40,7 @@ class CPUTestBenchInterface(parameter: CPUTestBenchParameter) extends Bundle {
 }
 
 object State extends ChiselEnum {
-  val Running, GoodTrap, BadTrap, Timeout = Value
+  val Running, GoodTrap, BadTrap, Timeout, Finished = Value
 }
 
 @instantiable

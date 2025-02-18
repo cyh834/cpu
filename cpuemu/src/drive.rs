@@ -9,6 +9,9 @@ use std::os::unix::fs::FileExt;
 use std::{fs, path::Path};
 use svdpi::{get_time, SvScope};
 use tracing::{debug, error, info, trace};
+use std::str::FromStr;
+use riscv_isa::{Decoder, Instruction, Target, decode_full};
+use regex::Captures;
 
 #[cfg(feature = "trace")]
 use crate::dpi::dump_wave;
@@ -61,9 +64,10 @@ pub(crate) struct Driver {
 
   pub(crate) dlen: u32,
 
-  pc: u64,
+  pub(crate) pc: u64,
+  pub(crate) a0: u64, //check return
   skip: bool,
-  //disasm: Disasm
+  target: Target
 }
 
 static MAX_TIME: u64 = 10000;
@@ -79,7 +83,7 @@ impl Driver {
     
     //refmodule.display();
 
-    let mut self_ = Self {
+    let self_ = Self {
       #[cfg(feature = "difftest")]
       refmodule,
       bus: shadow_bus,
@@ -93,8 +97,9 @@ impl Driver {
       state: SimState::Running,
       dlen: 64,
       pc: 0x8000_0000,
+      a0: 0,
       skip: false,
-      //disasm: Disasm::new(),
+      target: Target::from_str("RV64IMACZifencei_Zicsr").unwrap()
     };
     self_
   }
@@ -178,7 +183,8 @@ impl Driver {
       use crate::dpi::LAST_READ_PC;
       if addr as u64 != LAST_READ_PC {
         trace!(
-          "[{}] axi_read (addr={addr:#x}, size={size}, data={data_hex})",
+          "\x1b[34m[{}]\x1b[0m \x1b[35maxi_read\x1b[0m   (addr=\x1b[36m{addr:#x}\x1b[0m, size=\x1b[35m{size}\x1b[0m, data=\x1b[33m{data_hex}\x1b[0m)", 
+          //"[{}] axi_read  (addr={addr:#x}, size={size}, data={data_hex})",
           self.get_tick()
         );
       }
@@ -194,6 +200,16 @@ impl Driver {
     data: &[u8],
   ) -> anyhow::Result<()> {
     let size = 1 << awsize;
+    // check exit with code
+    if addr == EXIT_POS {
+      let exit_data_slice = data[..4].try_into().expect("slice with incorrect length");
+      if u32::from_le_bytes(exit_data_slice) == EXIT_CODE {
+        info!("driver is ready to quit");
+        self.state = SimState::Finished;
+        return Ok(());
+      }
+    }
+
     self.bus.write_mem_axi(addr, size, self.dlen / 8, strobe, data)?;
     let data_hex = hex::encode(data);
     self.last_commit_cycle = self.get_tick();
@@ -202,20 +218,14 @@ impl Driver {
       use crate::dpi::LAST_WRITE_PC;
       if addr as u64 != LAST_WRITE_PC {
         trace!(
-          "[{}] axi_write (addr={addr:#x}, size={size}, data={data_hex})",
+          "\x1b[34m[{}]\x1b[0m \x1b[33maxi_write\x1b[0m (addr=\x1b[36m{addr:#x}\x1b[0m, size={size}, data=\x1b[32m{data_hex}\x1b[0m)", 
+          //"[{}] axi_write (addr={addr:#x}, size={size}, data={data_hex})",
           self.get_tick()
         );
       }
     }
 
-    // check exit with code
-    if addr == EXIT_POS {
-      let exit_data_slice = data[..4].try_into().expect("slice with incorrect length");
-      if u32::from_le_bytes(exit_data_slice) == EXIT_CODE {
-        info!("driver is ready to quit");
-        self.state = SimState::Finished;
-      }
-    }
+
     Ok(())
   }
 
@@ -258,6 +268,50 @@ impl Driver {
     self.state as u8
   }
 
+  pub(crate) fn disasm(&mut self, inst: u32, gpr: [u64; 32]) -> String{
+    let raw = decode_full(inst, &self.target).to_string();
+    let re = regex::Regex::new(r"(?x)
+        (\b\d+\b)       # 匹配纯数字offset(第1捕获组)
+        \(
+          (x\d+)        # 匹配基址寄存器(第2捕获组)
+        \)
+        |               # 或
+        (x\d+)          # 单独寄存器(第3捕获组)
+        |               # 或
+        (\b0x[\da-fA-F]+\b) # 16进制立即数(第4捕获组)
+    ").unwrap();
+    // 替换为寄存器值
+    re.replace_all(&raw, |caps: &Captures| {
+      if let Some(offset) = caps.get(1) {
+          // 处理内存访问格式 64(x2)
+          let base_reg = caps.get(2).unwrap().as_str();
+          let reg_num: usize = base_reg[1..].parse().unwrap();
+          let base_val = gpr[reg_num];
+          let offset_num: u64 = offset.as_str().parse().unwrap();
+          let addr = base_val.wrapping_add(offset_num);
+          
+          format!(
+            "{}({}<{:#x}>)=<{:#x}>",
+            offset.as_str(),
+            base_reg,
+            base_val,
+            addr
+          )
+      } else if let Some(reg) = caps.get(3) {
+          // 处理单独寄存器 x8
+          let reg_num: usize = reg.as_str()[1..].parse().unwrap();
+          let value = gpr[reg_num];
+          format!("x{}<{:#x}>", reg_num, value)
+      } else if let Some(hex_num) = caps.get(4) {
+          // 保留16进制立即数的原始格式
+          hex_num.as_str().to_string()
+      } else {
+          caps[0].to_string()
+      }
+    }).to_string()
+
+  }
+
   pub(crate) fn retire_instruction(&mut self, dut: &RetireData) {
     self.last_commit_cycle = self.get_tick();
 
@@ -286,6 +340,11 @@ impl Driver {
 
       let ref_event = self.refmodule.step();
 
+      // load & store
+      // if dut.is_load || dut.is_store {
+
+      // }
+      // check reg
       let mut mismatch = false;
       let ref_next_pc = ref_event.pc;
       let ref_gpr = ref_event.gpr;
@@ -299,7 +358,7 @@ impl Driver {
       //check pc
       if !self.skip {
         if self.pc != dut_pc {
-          println!("pc mismatch! ref={:#x}, dut={:#x}", self.pc, dut_pc);
+          error!("pc mismatch! ref={:#x}, dut={:#x}", self.pc, dut_pc);
           mismatch = true;
         }
       }
@@ -307,7 +366,7 @@ impl Driver {
       //check gpr
       for i in 0..32 {
         if ref_gpr[i] != dut_gpr[i]{
-          println!("gpr{}({}) mismatch! ref={:#x}, dut={:#x}", i, gpr_name(i), ref_gpr[i], dut_gpr[i]);
+          error!("gpr{}({}) mismatch! ref={:#x}, dut={:#x}", i, gpr_name(i), ref_gpr[i], dut_gpr[i]);
           mismatch = true;
         }
       }
@@ -317,7 +376,7 @@ impl Driver {
         let ref_csr = ref_csr[i];
         let dut_csr = dut_csr[i];
         if ref_csr != dut_csr {
-          println!(
+          error!(
             "csr{} mismatch! ref={:#x}, dut={:#x}",
             csr_name(i),
             ref_csr,
@@ -328,13 +387,14 @@ impl Driver {
       }
 
       if mismatch {
-        println!("dut pc: {:#018x}, inst: {:#010x}[{}]", dut_pc, dut_inst, "TODO");//self.disasm.disassemble(dut_inst));
-        println!("ref display:");
+        error!("dut pc: {:#018x}, inst: {:#010x}[{}]", dut_pc, dut_inst, self.disasm(dut_inst, dut_gpr));
+        error!("ref display:");
         self.refmodule.display();
-        println!("difftest mismatch!");
-        self.state = SimState::Finished;
+        error!("difftest mismatch!");
+        self.state = SimState::BadTrap;
       }
       self.pc = ref_next_pc;
+      self.a0 = ref_gpr[10];
       self.skip = false;
     }
   }

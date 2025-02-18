@@ -43,6 +43,6 @@ class BRH(val parameter: CPUParameter)
   ) ^ BRUOpType.isBranchInvert(func)
 
   io.taken := taken
-  io.mispredict := io.pred_taken ^ taken // no use
+  io.mispredict := io.pred_taken ^ taken
   io.target := io.pc + io.offset
 }
