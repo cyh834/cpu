@@ -194,10 +194,20 @@ unsafe extern "C" fn sim_final() {
           if driver.a0 == 0 {
               info!("sim_final: GoodTrap")
           } else {
-              error!("sim_final: BadTrap")
+              error!("sim_final: Finished (Error code: {})", driver.a0);
           }
       },
     }
+    let exit_code = match driver.state {
+      SimState::GoodTrap => 0,
+      SimState::BadTrap => 1,
+      SimState::Running => 2,
+      SimState::Timeout => 3,
+      SimState::Finished if driver.a0 == 0 => 0,
+      SimState::Finished if driver.a0 != 0 => 1,
+      _ => 4,
+    };
+    std::process::exit(exit_code);
   }
 }
 
