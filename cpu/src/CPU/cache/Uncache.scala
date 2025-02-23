@@ -28,16 +28,16 @@ class InstUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter, vaddrB
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  //val CntSize = 8
-  //val cnt = RegInit(0.U(log2Up(CntSize).W))
-  //when(io.out.ar.fire && !io.out.r.fire) {
+  // val CntSize = 8
+  // val cnt = RegInit(0.U(log2Up(CntSize).W))
+  // when(io.out.ar.fire && !io.out.r.fire) {
   //  cnt := cnt + 1.U
   //  assert(cnt + 1.U <= CntSize.U, "InstUncache: cnt overflow")
-  //}
-  //when(io.out.r.fire && !io.out.ar.fire) {
+  // }
+  // when(io.out.r.fire && !io.out.ar.fire) {
   //  cnt := cnt - 1.U
   //  assert(cnt === 0.U, "InstUncache: cnt underflow")
-  //}
+  // }
   val s_idle :: s_busy :: Nil = Enum(2)
   val state = RegInit(s_idle)
   when(io.out.ar.fire) {
@@ -66,12 +66,12 @@ class InstUncache(useAsyncReset: Boolean, parameter: AXI4BundleParameter, vaddrB
   io.out.ar.bits.len := 0.U
   io.out.ar.bits.size := 3.U
   io.out.ar.bits.burst := burst.INCR
-  //io.out.ar.bits.lock := 0.U
-  //io.out.ar.bits.cache := 0.U
-  //io.out.ar.bits.prot := 0.U
-  //io.out.ar.bits.qos := 0.U
-  //io.out.ar.bits.region := 0.U
-  //io.out.ar.bits.user := 0.U
+  // io.out.ar.bits.lock := 0.U
+  // io.out.ar.bits.cache := 0.U
+  // io.out.ar.bits.prot := 0.U
+  // io.out.ar.bits.qos := 0.U
+  // io.out.ar.bits.region := 0.U
+  // io.out.ar.bits.user := 0.U
 
   val flush = needFlush || io.flush
   io.in.resp.valid := io.out.r.valid && !flush

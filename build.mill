@@ -21,19 +21,11 @@ object deps {
   val rvdecoderdb = ivy"me.jiuyang::rvdecoderdb-jvm:0.0.0+0-no-vcs-SNAPSHOT"
 }
 
-object rvdecoderdb extends RVDecoderDB
-trait RVDecoderDB extends millbuild.dependencies.rvdecoderdb.common.RVDecoderDBJVMModule with ScalaModule {
-  def scalaVersion            = T(deps.scalaVer)
-  def osLibIvy                = deps.oslib
-  def upickleIvy              = deps.upickle
-  override def millSourcePath = os.pwd / "dependencies" / "rvdecoderdb" / "rvdecoderdb"
-}
-
 object cpu extends CPU
 trait CPU extends common.HasChisel with ScalafmtModule{
   def scalaVersion = T(deps.scalaVer)
 
-  def rvdecoderdbIvy = v.rvdecoderdb
+  def rvdecoderdbIvy = deps.rvdecoderdb
   def riscvOpcodesPath  = T.input(PathRef(millSourcePath / os.up / "dependencies" / "riscv-opcodes"))
 
   def chiselModule = None
@@ -47,7 +39,7 @@ trait Elaborator extends common.ElaboratorModule with ScalafmtModule {
   def scalaVersion = Task(deps.scalaVer)
 
   def circtInstallPath =
-    Task.input(PathRef(os.Path(T.ctx().env("CIRCT_INSTALL_PATH"))))
+    Task.Input(PathRef(os.Path(T.ctx().env("CIRCT_INSTALL_PATH"))))
 
   def generators = Seq(cpu)
 

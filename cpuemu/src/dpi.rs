@@ -3,10 +3,10 @@
 
 use std::ffi::{c_char, c_longlong};
 //use std::cmp::max;
-use std::sync::Mutex;
-use tracing::{debug, trace};
 use std::fs::File;
 use std::io::Write;
+use std::sync::Mutex;
+use tracing::{debug, trace};
 
 use crate::drive::Driver;
 use crate::drive::SimState;
@@ -75,15 +75,15 @@ unsafe fn load_from_payload<'a>(
 
 #[derive(Debug)]
 pub struct RetireData {
-    pub inst: u32,
-    pub pc: u64,
-    pub gpr: [u64; 32],
-    pub csr: [u64; 18],
-    pub skip: bool,
-    pub is_rvc: bool,
-    pub rfwen: bool,
-    pub is_load: bool,
-    pub is_store: bool
+  pub inst: u32,
+  pub pc: u64,
+  pub gpr: [u64; 32],
+  pub csr: [u64; 18],
+  pub skip: bool,
+  pub is_rvc: bool,
+  pub rfwen: bool,
+  pub is_load: bool,
+  pub is_store: bool,
 }
 
 //----------------------
@@ -193,12 +193,12 @@ unsafe extern "C" fn sim_final() {
       SimState::Running => error!("sim_final: Running"),
       SimState::Timeout => info!("sim_final: Timeout"),
       SimState::Finished => {
-          if driver.a0 == 0 {
-              info!("sim_final: GoodTrap")
-          } else {
-              error!("sim_final: Finished (Error code: {})", driver.a0);
-          }
-      },
+        if driver.a0 == 0 {
+          info!("sim_final: GoodTrap")
+        } else {
+          error!("sim_final: Finished (Error code: {})", driver.a0);
+        }
+      }
     }
     let exit_code = match driver.state {
       SimState::GoodTrap => 0,
@@ -225,12 +225,12 @@ unsafe extern "C" fn sim_watchdog(reason: *mut c_char) {
 }
 
 #[no_mangle]
-unsafe extern "C" fn calculate_ipc(
-  instruction_count: u64,
-  simulation_time: u64,
-) {
+unsafe extern "C" fn calculate_ipc(instruction_count: u64, simulation_time: u64) {
   let ipc = instruction_count as f64 / simulation_time as f64;
-  info!("instruction_count: {}, simulation_time: {}, ipc: {}", instruction_count, simulation_time, ipc);
+  info!(
+    "instruction_count: {}, simulation_time: {}, ipc: {}",
+    instruction_count, simulation_time, ipc
+  );
 }
 
 // 被内存布局搞晕了，先这样吧
@@ -239,34 +239,85 @@ unsafe extern "C" fn calculate_ipc(
 unsafe extern "C" fn retire_instruction(
   inst: u32,
   pc: u64,
-  gpr0: u64,gpr1: u64, gpr2: u64,gpr3: u64,gpr4: u64,gpr5: u64,gpr6: u64,gpr7: u64,
-  gpr8: u64,gpr9: u64,gpr10: u64,gpr11: u64,gpr12: u64,gpr13: u64,gpr14: u64,gpr15: u64,
-  gpr16: u64,gpr17: u64,gpr18: u64,gpr19: u64,gpr20: u64,gpr21: u64,gpr22: u64,gpr23: u64,
-  gpr24: u64,gpr25: u64,gpr26: u64,gpr27: u64,gpr28: u64,gpr29: u64,gpr30: u64,gpr31: u64,
-  csr0: u64,csr1: u64, csr2: u64,csr3: u64,csr4: u64,csr5: u64,csr6: u64,csr7: u64,
-  csr8: u64,csr9: u64,csr10: u64,csr11: u64,csr12: u64,csr13: u64,csr14: u64,csr15: u64,
-  csr16: u64,csr17: u64,
+  gpr0: u64,
+  gpr1: u64,
+  gpr2: u64,
+  gpr3: u64,
+  gpr4: u64,
+  gpr5: u64,
+  gpr6: u64,
+  gpr7: u64,
+  gpr8: u64,
+  gpr9: u64,
+  gpr10: u64,
+  gpr11: u64,
+  gpr12: u64,
+  gpr13: u64,
+  gpr14: u64,
+  gpr15: u64,
+  gpr16: u64,
+  gpr17: u64,
+  gpr18: u64,
+  gpr19: u64,
+  gpr20: u64,
+  gpr21: u64,
+  gpr22: u64,
+  gpr23: u64,
+  gpr24: u64,
+  gpr25: u64,
+  gpr26: u64,
+  gpr27: u64,
+  gpr28: u64,
+  gpr29: u64,
+  gpr30: u64,
+  gpr31: u64,
+  csr0: u64,
+  csr1: u64,
+  csr2: u64,
+  csr3: u64,
+  csr4: u64,
+  csr5: u64,
+  csr6: u64,
+  csr7: u64,
+  csr8: u64,
+  csr9: u64,
+  csr10: u64,
+  csr11: u64,
+  csr12: u64,
+  csr13: u64,
+  csr14: u64,
+  csr15: u64,
+  csr16: u64,
+  csr17: u64,
   skip: bool,
   is_rvc: bool,
   rfwen: bool,
   is_load: bool,
   is_store: bool,
-){
+) {
   let mut driver = DPI_TARGET.lock().unwrap();
   if let Some(driver) = driver.as_mut() {
     let gpr: [u64; 32] = [
-      gpr0,gpr1,gpr2,gpr3,gpr4,gpr5,gpr6,gpr7,
-      gpr8,gpr9,gpr10,gpr11,gpr12,gpr13,gpr14,gpr15,
-      gpr16,gpr17,gpr18,gpr19,gpr20,gpr21,gpr22,gpr23,
-      gpr24,gpr25,gpr26,gpr27,gpr28,gpr29,gpr30,gpr31
+      gpr0, gpr1, gpr2, gpr3, gpr4, gpr5, gpr6, gpr7, gpr8, gpr9, gpr10, gpr11, gpr12, gpr13,
+      gpr14, gpr15, gpr16, gpr17, gpr18, gpr19, gpr20, gpr21, gpr22, gpr23, gpr24, gpr25, gpr26,
+      gpr27, gpr28, gpr29, gpr30, gpr31,
     ];
     let csr: [u64; 18] = [
-      csr0,csr1,csr2,csr3,csr4,csr5,csr6,csr7,
-      csr8,csr9,csr10,csr11,csr12,csr13,csr14,csr15,
-      csr16,csr17
+      csr0, csr1, csr2, csr3, csr4, csr5, csr6, csr7, csr8, csr9, csr10, csr11, csr12, csr13,
+      csr14, csr15, csr16, csr17,
     ];
-    let retire = RetireData{inst,pc,gpr,csr,skip,is_rvc,rfwen,is_load,is_store};
-    trace!("{:x?}",retire);
+    let retire = RetireData {
+      inst,
+      pc,
+      gpr,
+      csr,
+      skip,
+      is_rvc,
+      rfwen,
+      is_load,
+      is_store,
+    };
+    trace!("{:x?}", retire);
     driver.retire_instruction(&retire);
   }
 }

@@ -108,8 +108,8 @@ class EXU(val parameter: CPUParameter)
   io.out.valid := MuxLookup(fuType, io.in.valid)(
     Seq(
       FuType.ldu -> lsu.out_valid,
-      FuType.stu -> lsu.out_valid,
-      //FuType.mdu -> mdu.out_valid
+      FuType.stu -> lsu.out_valid
+      // FuType.mdu -> mdu.out_valid
     )
   )
 
@@ -162,7 +162,7 @@ class EXU(val parameter: CPUParameter)
     )
   )
 
-  //test
+  // test
   io.out.bits.instr := io.in.bits.instr
   io.out.bits.isRVC := io.in.bits.isRVC
   io.out.bits.pc := io.in.bits.pc

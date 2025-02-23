@@ -4,14 +4,14 @@ use elf::{
   endian::LittleEndian,
   ElfStream,
 };
+use regex::Captures;
+use riscv_isa::{decode_full, Decoder, Instruction, Target};
 use std::collections::HashMap;
 use std::os::unix::fs::FileExt;
+use std::str::FromStr;
 use std::{fs, path::Path};
 use svdpi::{get_time, SvScope};
 use tracing::{debug, error, info, trace};
-use std::str::FromStr;
-use riscv_isa::{Decoder, Instruction, Target, decode_full};
-use regex::Captures;
 
 #[cfg(feature = "trace")]
 use crate::dpi::dump_wave;
@@ -68,7 +68,7 @@ pub(crate) struct Driver {
   pub(crate) gpr: [u64; 32],
   pub(crate) a0: u64, //check return
   skip: bool,
-  target: Target
+  target: Target,
 }
 
 static MAX_TIME: u64 = 10000000;
@@ -81,7 +81,7 @@ impl Driver {
   pub(crate) fn new(scope: SvScope, args: &SimArgs) -> Self {
     let (e_entry, shadow_bus, _fn_sym_tab, refmodule) =
       Self::load_elf(&args.elf_file).expect("fail creating simulator");
-    
+
     //refmodule.display();
 
     let self_ = Self {
@@ -101,7 +101,7 @@ impl Driver {
       gpr: [0; 32],
       a0: 0,
       skip: false,
-      target: Target::from_str("RV64IMACZifencei_Zicsr").unwrap()
+      target: Target::from_str("RV64IMACZifencei_Zicsr").unwrap(),
     };
     self_
   }
@@ -227,7 +227,6 @@ impl Driver {
       }
     }
 
-
     Ok(())
   }
 
@@ -270,9 +269,10 @@ impl Driver {
     self.state as u8
   }
 
-  pub(crate) fn disasm(&mut self, inst: u32, gpr: [u64; 32]) -> String{
+  pub(crate) fn disasm(&mut self, inst: u32, gpr: [u64; 32]) -> String {
     let raw = decode_full(inst, &self.target).to_string();
-    let re = regex::Regex::new(r"(?x)
+    let re = regex::Regex::new(
+      r"(?x)
         (\b\d+\b)       # 匹配纯数字offset(第1捕获组)
         \(
           (x\d+)        # 匹配基址寄存器(第2捕获组)
@@ -281,37 +281,39 @@ impl Driver {
         (x\d+)          # 单独寄存器(第3捕获组)
         |               # 或
         (\b0x[\da-fA-F]+\b) # 16进制立即数(第4捕获组)
-    ").unwrap();
+    ",
+    )
+    .unwrap();
     // 替换为寄存器值
     re.replace_all(&raw, |caps: &Captures| {
       if let Some(offset) = caps.get(1) {
-          // 处理内存访问格式 64(x2)
-          let base_reg = caps.get(2).unwrap().as_str();
-          let reg_num: usize = base_reg[1..].parse().unwrap();
-          let base_val = gpr[reg_num];
-          let offset_num: u64 = offset.as_str().parse().unwrap();
-          let addr = base_val.wrapping_add(offset_num);
-          
-          format!(
-            "{}({}<{:#x}>)=<{:#x}>",
-            offset.as_str(),
-            base_reg,
-            base_val,
-            addr
-          )
-      } else if let Some(reg) = caps.get(3) {
-          // 处理单独寄存器 x8
-          let reg_num: usize = reg.as_str()[1..].parse().unwrap();
-          let value = gpr[reg_num];
-          format!("x{}<{:#x}>", reg_num, value)
-      } else if let Some(hex_num) = caps.get(4) {
-          // 保留16进制立即数的原始格式
-          hex_num.as_str().to_string()
-      } else {
-          caps[0].to_string()
-      }
-    }).to_string()
+        // 处理内存访问格式 64(x2)
+        let base_reg = caps.get(2).unwrap().as_str();
+        let reg_num: usize = base_reg[1..].parse().unwrap();
+        let base_val = gpr[reg_num];
+        let offset_num: u64 = offset.as_str().parse().unwrap();
+        let addr = base_val.wrapping_add(offset_num);
 
+        format!(
+          "{}({}<{:#x}>)=<{:#x}>",
+          offset.as_str(),
+          base_reg,
+          base_val,
+          addr
+        )
+      } else if let Some(reg) = caps.get(3) {
+        // 处理单独寄存器 x8
+        let reg_num: usize = reg.as_str()[1..].parse().unwrap();
+        let value = gpr[reg_num];
+        format!("x{}<{:#x}>", reg_num, value)
+      } else if let Some(hex_num) = caps.get(4) {
+        // 保留16进制立即数的原始格式
+        hex_num.as_str().to_string()
+      } else {
+        caps[0].to_string()
+      }
+    })
+    .to_string()
   }
 
   pub(crate) fn retire_instruction(&mut self, dut: &RetireData) {
@@ -336,7 +338,7 @@ impl Driver {
         return;
       }
       if self.skip {
-        let event = NemuEvent { gpr: dut.gpr, csr: dut.csr, pc: dut.pc};
+        let event = NemuEvent { gpr: dut.gpr, csr: dut.csr, pc: dut.pc };
         self.refmodule.override_event(event);
       }
 
@@ -367,8 +369,14 @@ impl Driver {
 
       //check gpr
       for i in 0..32 {
-        if ref_gpr[i] != dut_gpr[i]{
-          error!("gpr{}({}) mismatch! ref={:#x}, dut={:#x}", i, gpr_name(i), ref_gpr[i], dut_gpr[i]);
+        if ref_gpr[i] != dut_gpr[i] {
+          error!(
+            "gpr{}({}) mismatch! ref={:#x}, dut={:#x}",
+            i,
+            gpr_name(i),
+            ref_gpr[i],
+            dut_gpr[i]
+          );
           mismatch = true;
         }
       }
@@ -389,7 +397,13 @@ impl Driver {
       }
 
       if mismatch {
-        error!("[{}]dut pc: {:#018x}, inst: {:#010x}[{}]",self.get_tick(), dut_pc, dut_inst, self.disasm(dut_inst, self.gpr));
+        error!(
+          "[{}]dut pc: {:#018x}, inst: {:#010x}[{}]",
+          self.get_tick(),
+          dut_pc,
+          dut_inst,
+          self.disasm(dut_inst, self.gpr)
+        );
         error!("ref display:");
         self.refmodule.display();
         error!("difftest mismatch!");

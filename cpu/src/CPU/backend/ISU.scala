@@ -16,7 +16,7 @@ class IsuInterface(parameter: CPUParameter) extends Bundle {
   val out = Decoupled(new DecodeIO(parameter.iduParameter))
   val flush = Input(Bool())
   val rfread = Vec(parameter.regfileParameter.numReadPorts, Flipped(new RfReadPort(parameter.regfileParameter)))
-  //val scoreboard = Flipped(new SB_ISU(parameter.scoreboardParameter))
+  // val scoreboard = Flipped(new SB_ISU(parameter.scoreboardParameter))
   val forward = Flipped(new ForwardIO(parameter.LogicRegsWidth, parameter.XLEN))
   val wb = Vec(parameter.regfileParameter.numWritePorts, new RfWritePort(parameter.regfileParameter))
 }
@@ -33,20 +33,23 @@ class ISU(val parameter: CPUParameter)
 
   def canForward_exu(i: Int) = io.forward.valid & (io.forward.rfDest === io.in.bits.lsrc(i))
   def canForward_wbu(i: Int) = io.wb(0).wen & (io.wb(0).addr === io.in.bits.lsrc(i))
-  for(i <- 0 until parameter.NumSrc) {
+  for (i <- 0 until parameter.NumSrc) {
     io.rfread(i).addr := io.in.bits.lsrc(i) // 从寄存器堆中读取
-    io.out.bits.src(i) := MuxCase(io.rfread(i).data, Array(
-                            !io.in.bits.srcIsReg(i) -> io.in.bits.src(i),
-                            canForward_exu(i) -> io.forward.rfData,
-                            canForward_wbu(i) -> io.wb(0).data
-                          )) 
+    io.out.bits.src(i) := MuxCase(
+      io.rfread(i).data,
+      Array(
+        !io.in.bits.srcIsReg(i) -> io.in.bits.src(i),
+        canForward_exu(i) -> io.forward.rfData,
+        canForward_wbu(i) -> io.wb(0).data
+      )
+    )
   }
   // val validVec = Wire(Vec(parameter.NumSrc, Bool()))
   // val canforward = Wire(Vec(parameter.NumSrc, Bool()))
   // for (i <- 0 until parameter.NumSrc) {
   //   io.rfread(i).addr := io.in.bits.lsrc(i)
   //   canforward(i) := io.forward.valid & (io.forward.rfDest === io.in.bits.lsrc(i))
-  //   validVec(i) := !io.in.bits.srcIsReg(i) || !io.scoreboard.isBusy(i) || canforward(i) 
+  //   validVec(i) := !io.in.bits.srcIsReg(i) || !io.scoreboard.isBusy(i) || canforward(i)
   //   io.out.bits.src(i) := Mux(
   //     io.in.bits.srcIsReg(i),
   //     Mux(canforward(i), io.forward.rfData, io.rfread(i).data),

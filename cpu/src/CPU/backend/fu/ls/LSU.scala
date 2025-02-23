@@ -92,18 +92,22 @@ class LSU(parameter: CPUParameter)
 
   // load_result
   val load_data = io.load.resp.bits.data >> offset
-  val sign_extend_data = MuxLookup(size, 0.U)(Seq(
-    "b00".U -> SignExt(load_data(7, 0), parameter.XLEN),
-    "b01".U -> SignExt(load_data(15, 0), parameter.XLEN),
-    "b10".U -> SignExt(load_data(31, 0), parameter.XLEN),
-    "b11".U -> load_data(63, 0)
-  ))
-  val zero_extend_data = MuxLookup(size, 0.U)(Seq(
-    "b00".U -> ZeroExt(load_data(7, 0), parameter.XLEN),
-    "b01".U -> ZeroExt(load_data(15, 0), parameter.XLEN),
-    "b10".U -> ZeroExt(load_data(31, 0), parameter.XLEN),
-    "b11".U -> load_data(63, 0)
-  ))
+  val sign_extend_data = MuxLookup(size, 0.U)(
+    Seq(
+      "b00".U -> SignExt(load_data(7, 0), parameter.XLEN),
+      "b01".U -> SignExt(load_data(15, 0), parameter.XLEN),
+      "b10".U -> SignExt(load_data(31, 0), parameter.XLEN),
+      "b11".U -> load_data(63, 0)
+    )
+  )
+  val zero_extend_data = MuxLookup(size, 0.U)(
+    Seq(
+      "b00".U -> ZeroExt(load_data(7, 0), parameter.XLEN),
+      "b01".U -> ZeroExt(load_data(15, 0), parameter.XLEN),
+      "b10".U -> ZeroExt(load_data(31, 0), parameter.XLEN),
+      "b11".U -> load_data(63, 0)
+    )
+  )
   val result = Mux(LSUOpType.loadIsUnsigned(io.func), zero_extend_data, sign_extend_data)
   io.result := HoldUnless(result, io.load.resp.fire)
 

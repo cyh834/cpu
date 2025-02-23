@@ -5,7 +5,13 @@ import chisel3.util._
 import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantiate}
 import chisel3.experimental.{SerializableModule, SerializableModuleParameter}
 
-class FIFOIO[T <: Data](private val gen: T, val depth: Int, val maxReadNum: Int, val maxWriteNum: Int, val useAsyncReset: Boolean) extends Bundle {
+class FIFOIO[T <: Data](
+  private val gen:   T,
+  val depth:         Int,
+  val maxReadNum:    Int,
+  val maxWriteNum:   Int,
+  val useAsyncReset: Boolean)
+    extends Bundle {
   val clock = Input(Clock())
   val reset = Input(if (useAsyncReset) AsyncReset() else Bool())
   val flush = Input(Bool())
@@ -40,7 +46,8 @@ abstract class FIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum:
 }
 
 @instantiable
-class SyncFIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum: Int, useAsyncReset: Boolean) extends FIFO(gen, depth, maxReadNum, maxWriteNum, useAsyncReset) {
+class SyncFIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum: Int, useAsyncReset: Boolean)
+    extends FIFO(gen, depth, maxReadNum, maxWriteNum, useAsyncReset) {
 
   val memReg = Reg(Vec(depth, gen)) // the register based memory
 
@@ -69,7 +76,11 @@ class SyncFIFO[T <: Data](gen: T, depth: Int, maxReadNum: Int, maxWriteNum: Int,
     rd_ptr := rd_ptr + io.rd_num
   }
 
-  fifo_counter := fifo_counter + Mux(io.wr_en && wrrs >= io.wr_num, io.wr_num, 0.U) - Mux(io.rd_en && rdrs >= io.rd_num, io.rd_num, 0.U)
+  fifo_counter := fifo_counter + Mux(io.wr_en && wrrs >= io.wr_num, io.wr_num, 0.U) - Mux(
+    io.rd_en && rdrs >= io.rd_num,
+    io.rd_num,
+    0.U
+  )
 
   io.remaining_write_space := wrrs
   io.remaining_read_space := rdrs

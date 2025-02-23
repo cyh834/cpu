@@ -34,7 +34,7 @@ class WBU(val parameter: CPUParameter)
   io.rfwrite(0).wen := io.in.bits.wb.wen & io.in.valid
 
   // scoreboard
-  //io.scoreboard.clearidx := Mux(io.in.fire, io.in.bits.wb.addr, 0.U)
+  // io.scoreboard.clearidx := Mux(io.in.fire, io.in.bits.wb.addr, 0.U)
 
   // redirect
   io.redirect := io.in.bits.redirect

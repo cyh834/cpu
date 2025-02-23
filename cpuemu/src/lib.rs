@@ -1,13 +1,9 @@
 use plusarg::PlusArgMatcher;
-use std::{
-  fs::File,
-  sync::Mutex,
-  path::PathBuf,
-};
+use std::{fs::File, path::PathBuf, sync::Mutex};
 
 use tracing::Level;
-use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
 use tracing_subscriber::filter::EnvFilter;
+use tracing_subscriber::{filter::LevelFilter, fmt, prelude::*};
 
 pub mod bus;
 pub mod dpi;
@@ -42,36 +38,31 @@ impl SimArgs {
 
     // 终端输出层
     let stdout_layer = fmt::Layer::new()
-        .with_writer(std::io::stderr)
-        .with_ansi(true)
-        .without_time()  // 禁用时间戳
-        .with_target(false)  // 移除模块路径
-        .with_filter(LevelFilter::INFO);
+      .with_writer(std::io::stderr)
+      .with_ansi(true)
+      .without_time() // 禁用时间戳
+      .with_target(false) // 移除模块路径
+      .with_filter(LevelFilter::INFO);
 
     // 文件输出层
     let file_layer = fmt::Layer::new()
-        .with_writer(Mutex::new(log_file))
-        .with_ansi(true)
-        .without_time()  // 禁用时间戳
-        .with_target(false)  // 移除模块路径
-        .with_filter(LevelFilter::from_level(log_level));
+      .with_writer(Mutex::new(log_file))
+      .with_ansi(true)
+      .without_time() // 禁用时间戳
+      .with_target(false) // 移除模块路径
+      .with_filter(LevelFilter::from_level(log_level));
 
     // mtrace
     let mtrace = File::create("mtrace.log")?;
     let mtrace_layer = fmt::Layer::new()
-        .with_writer(Mutex::new(mtrace))
-        .with_ansi(true)
-        .without_time()
-        .with_target(false)
-        .with_filter(
-          EnvFilter::new("cpuemu::drive=trace")
-        );
+      .with_writer(Mutex::new(mtrace))
+      .with_ansi(true)
+      .without_time()
+      .with_target(false)
+      .with_filter(EnvFilter::new("cpuemu::drive=trace"));
 
-
-    let subscriber = tracing_subscriber::registry()
-        .with(stdout_layer)
-        .with(file_layer)
-        .with(mtrace_layer);
+    let subscriber =
+      tracing_subscriber::registry().with(stdout_layer).with(file_layer).with(mtrace_layer);
 
     tracing::subscriber::set_global_default(subscriber)?;
     Ok(())
@@ -80,7 +71,9 @@ impl SimArgs {
   pub fn from_plusargs(matcher: &PlusArgMatcher) -> Self {
     Self {
       elf_file: matcher.match_("elf-file").into(),
-      log_file: Some(PathBuf::from(matcher.try_match("log-file").unwrap_or("cpuemu.log"))),
+      log_file: Some(PathBuf::from(
+        matcher.try_match("log-file").unwrap_or("cpuemu.log"),
+      )),
       log_level: matcher.try_match("log-level").unwrap_or("info").into(),
       #[cfg(feature = "trace")]
       dump_start: matcher.try_match("dump-start").unwrap_or("0").parse().unwrap(),

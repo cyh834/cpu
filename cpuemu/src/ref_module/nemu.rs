@@ -6,7 +6,9 @@ pub struct Nemu {}
 impl Nemu {
   pub fn new() -> Self {
     #[cfg(feature = "difftest")]
-    unsafe { difftest_init() }
+    unsafe {
+      difftest_init()
+    }
     Nemu {}
   }
 

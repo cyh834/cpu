@@ -13,12 +13,18 @@ object BPUParameter {
     upickle.default.macroRW
 }
 
-case class BPUParameter(NRbtb: Int, NRras: Int, fetchWidth: Int, useCompressed: Boolean, useAsyncReset: Boolean, vaddrBits: Int)
+case class BPUParameter(
+  NRbtb:         Int,
+  NRras:         Int,
+  fetchWidth:    Int,
+  useCompressed: Boolean,
+  useAsyncReset: Boolean,
+  vaddrBits:     Int)
     extends SerializableModuleParameter {
   val coreInstBytes = (if (useCompressed) 16 else 32) / 8
-  val waynum = fetchWidth / coreInstBytes  // For RV64IMAC, 8/2=4
-  val set = NRbtb / waynum  // 512/4=128
-  val idxBits = log2Up(set) // log2(128)=7  
+  val waynum = fetchWidth / coreInstBytes // For RV64IMAC, 8/2=4
+  val set = NRbtb / waynum // 512/4=128
+  val idxBits = log2Up(set) // log2(128)=7
   val wayBits = log2Up(waynum) // log2(4)=2
   val coreBits = log2Up(coreInstBytes) // log2(2)=1
 
@@ -28,7 +34,7 @@ case class BPUParameter(NRbtb: Int, NRras: Int, fetchWidth: Int, useCompressed: 
 
 class BTBAddr(parameter: BPUParameter) extends Bundle {
   val tag = UInt(parameter.tagBits.W)
-  val idx = UInt(parameter.idxBits.W) 
+  val idx = UInt(parameter.idxBits.W)
   val way = UInt(parameter.wayBits.W) // pc[2:1]
   val core = UInt(parameter.coreBits.W) // pc[0]
 
@@ -36,7 +42,7 @@ class BTBAddr(parameter: BPUParameter) extends Bundle {
   def getTag(x:   UInt) = fromUInt(x).tag
   def getIdx(x:   UInt) = fromUInt(x).idx
   def getWay(x:   UInt) = fromUInt(x).way
-  def getCore(x:   UInt) = fromUInt(x).core
+  def getCore(x:  UInt) = fromUInt(x).core
 }
 
 object Brtype {
@@ -65,11 +71,11 @@ class BTB(parameter: BPUParameter) {
   private val btb = Seq.tabulate(waynum) { _ => SyncReadMem(set, datatype) }
 
   def read(addr: BTBAddr): Vec[BTBData] = {
-    VecInit((0 to (waynum-1)).map(i => btb(i).read(addr.idx).asTypeOf(new BTBData(parameter))))
+    VecInit((0 to (waynum - 1)).map(i => btb(i).read(addr.idx).asTypeOf(new BTBData(parameter))))
   }
 
   def hit(addr: BTBAddr, data: Vec[BTBData]): Vec[Bool] = {
-    VecInit((0 to (waynum-1)).map(i => data(i).valid && data(i).BIA === addr.tag))
+    VecInit((0 to (waynum - 1)).map(i => data(i).valid && data(i).BIA === addr.tag))
   }
 
   def update(addr: BTBAddr, wdata: BTBData): Unit = {
@@ -90,8 +96,8 @@ class PHT(parameter: BPUParameter) {
 
   private val pht = Seq.tabulate(waynum)(_ => Mem(set, UInt(2.W)))
 
-  def value(addr: BTBAddr): Vec[UInt] = VecInit((0 to (waynum-1)).map(i => pht(i).read(addr.idx)))
-  def taken(addr: BTBAddr): Vec[Bool] = VecInit((0 to (waynum-1)).map(i => value(addr)(i)(1)))
+  def value(addr: BTBAddr): Vec[UInt] = VecInit((0 to (waynum - 1)).map(i => pht(i).read(addr.idx)))
+  def taken(addr: BTBAddr): Vec[Bool] = VecInit((0 to (waynum - 1)).map(i => value(addr)(i)(1)))
   def update(addr: BTBAddr, realtaken: Bool): Unit = {
     val oldtaken = value(addr)(addr.way)
     val newtaken = Mux(realtaken, oldtaken + 1.U, oldtaken - 1.U)
@@ -221,19 +227,24 @@ class BPU(val parameter: BPUParameter)
     when(io.update.ras.bits.brtype === Brtype.call) {
       ras.push(Mux(io.update.ras.bits.isRVC, pc + 2.U, pc + 4.U))
     }
-    .elsewhen(io.update.ras.bits.brtype === Brtype.ret) {
-      ras.pop()
-    }
+      .elsewhen(io.update.ras.bits.brtype === Brtype.ret) {
+        ras.pop()
+      }
   }
 
   // 输出
-  def genInstValid(pc: BTBAddr) = (Fill(waynum, 1.U(1.W)) << pc.way)(waynum-1, 0)
+  def genInstValid(pc: BTBAddr) = (Fill(waynum, 1.U(1.W)) << pc.way)(waynum - 1, 0)
   val pcLatchValid = genInstValid(pcLatch)
   val target = Wire(Vec(waynum, UInt(parameter.vaddrBits.W)))
-  (0 to (waynum-1)).map(i => target(i) := Mux(btbRead(i).brtype === Brtype.ret, rasTarget, btbRead(i).BTA))
-  (0 to (waynum-1)).map(i => io.out.bits.brIdx(i) := btbHit(i) && pcLatchValid(i).asBool && Mux(btbRead(i).brtype === Brtype.branch, phtTaken(i), true.B))
+  (0 to (waynum - 1)).map(i => target(i) := Mux(btbRead(i).brtype === Brtype.ret, rasTarget, btbRead(i).BTA))
+  (0 to (waynum - 1)).map(i =>
+    io.out.bits
+      .brIdx(i) := btbHit(i) && pcLatchValid(i).asBool && Mux(btbRead(i).brtype === Brtype.branch, phtTaken(i), true.B)
+  )
 
-  io.out.bits.crosslineJump := btbRead(waynum - 1).crosslineJump && btbHit(waynum - 1) &&  (0 to (waynum - 2)).map(i => !io.out.bits.brIdx(i)).reduce(_ && _)
+  io.out.bits.crosslineJump := btbRead(waynum - 1).crosslineJump && btbHit(waynum - 1) && (0 to (waynum - 2))
+    .map(i => !io.out.bits.brIdx(i))
+    .reduce(_ && _)
   io.out.bits.pc := PriorityMux(io.out.bits.brIdx, target)
   io.out.valid := RegNext(io.in.valid) && io.out.bits.brIdx.asUInt.orR
 }

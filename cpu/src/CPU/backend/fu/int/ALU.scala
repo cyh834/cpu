@@ -46,16 +46,16 @@ class ALU(val parameter: CPUParameter)
     )
   )
 
-  val res = MuxLookup(func(4,0), adder)(
+  val res = MuxLookup(func(4, 0), adder)(
     Seq(
-      ALUOpType.sll  -> (ssrc1 << shamt)(XLEN - 1, 0),
-      ALUOpType.srl  -> (ssrc1 >> shamt),
-      ALUOpType.sra  -> (ssrc1.asSInt >> shamt).asUInt,
+      ALUOpType.sll -> (ssrc1 << shamt)(XLEN - 1, 0),
+      ALUOpType.srl -> (ssrc1 >> shamt),
+      ALUOpType.sra -> (ssrc1.asSInt >> shamt).asUInt,
       ALUOpType.sltu -> ZeroExt(sltu(0), XLEN),
-      ALUOpType.slt  -> ZeroExt(slt(0), XLEN),
-      ALUOpType.and  -> (src1 & src2),
-      ALUOpType.or   -> (src1 | src2),
-      ALUOpType.xor  -> xor
+      ALUOpType.slt -> ZeroExt(slt(0), XLEN),
+      ALUOpType.and -> (src1 & src2),
+      ALUOpType.or -> (src1 | src2),
+      ALUOpType.xor -> xor
     )
   )
 

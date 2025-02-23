@@ -32,14 +32,19 @@
 nix build '.#cpu.rtl'
 ```
 
+生成测试用例
+```bash
+nix build '.#nexus-am'
+```
+
 使用Verilator仿真
 ```bash
-nix develop "#test" -c python script/run.py nexus-am/dummy
+nix develop '#test' -c python script/run.py nexus-am/dummy
 ```
 
 使用Verilator生成波形
 ```bash
-nix develop "#test" -c python script/run.py nexus-am/dummy --trace
+nix develop '#test' -c python script/run.py nexus-am/dummy --trace
 ```
 
 ### TODO

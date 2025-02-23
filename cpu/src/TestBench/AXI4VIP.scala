@@ -170,11 +170,11 @@ class AXI4VIP(parameter: AXI4VIPParameter) extends FixedIORawModule[AXI4VIPInter
       when(channel.ar.ready && channel.ar.valid) {
         cam(arPtr).arid := channel.ar.bits.id
         cam(arPtr).arlen := channel.ar.bits.len
-        cam(arPtr).readPayload := RawUnclockedNonVoidFunctionCall( //Unclocked or Clocked?
+        cam(arPtr).readPayload := RawUnclockedNonVoidFunctionCall( // Unclocked or Clocked?
           s"axi_read",
           new ReadPayload(parameter.readPayloadSize, parameter.axiParameter.dataWidth)
         )(
-          //io.clock,
+          // io.clock,
           when.cond,
           io.channelId,
           channel.ar.bits.id.asTypeOf(UInt(64.W)),

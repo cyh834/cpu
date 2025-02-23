@@ -99,7 +99,7 @@ class IDU(val parameter: IDUParameter)
     )
   )
   // src 可能会在isu中被修改
-  io.out.bits.src(0) := Mux(io.in.bits.inst(6,0) === "b0110111".U, 0.U, io.in.bits.pc) //fix lui
+  io.out.bits.src(0) := Mux(io.in.bits.inst(6, 0) === "b0110111".U, 0.U, io.in.bits.pc) // fix lui
   io.out.bits.src(1) := imm
   io.out.bits.imm := imm
 

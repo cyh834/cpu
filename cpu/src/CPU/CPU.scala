@@ -74,7 +74,7 @@ case class CPUParameter(useAsyncReset: Boolean, extensions: Seq[String]) extends
   val NrPhyRegs:      Int = 32
   val LogicRegsWidth: Int = log2Up(NrPhyRegs)
   val NumSrc:         Int = 2
-  val PredictWidth:  Int = 4
+  val PredictWidth:   Int = 4
 
   val instructionFetchParameter: AXI4BundleParameter = AXI4BundleParameter(
     addrWidth = PAddrBits,
@@ -143,7 +143,7 @@ class Retire extends Bundle {
 }
 
 class CPUProbe(parameter: CPUParameter) extends Bundle {
-  //val backendProbe: BackendProbe = new BackendProbe(parameter)
+  // val backendProbe: BackendProbe = new BackendProbe(parameter)
   val retire: Valid[Retire] = Valid(new Retire)
 }
 
@@ -177,7 +177,7 @@ class CPU(val parameter: CPUParameter)
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
 
-  //val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
+  // val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
   val instUncache: Instance[InstUncache] = Instantiate(
     new InstUncache(
       parameter.useAsyncReset,
@@ -186,12 +186,12 @@ class CPU(val parameter: CPUParameter)
       parameter.DataBits
     )
   )
-  val ifu:  Instance[IFU]  = Instantiate(new IFU(parameter))
+  val ifu:  Instance[IFU] = Instantiate(new IFU(parameter))
   val ibuf: Instance[IBUF] = Instantiate(new IBUF(parameter.ibufParameter))
-  val idu:  Instance[IDU]  = Instantiate(new IDU(parameter.iduParameter))
-  val isu:  Instance[ISU]  = Instantiate(new ISU(parameter))
-  val exu:  Instance[EXU]  = Instantiate(new EXU(parameter))
-  val wbu:  Instance[WBU]  = Instantiate(new WBU(parameter))
+  val idu:  Instance[IDU] = Instantiate(new IDU(parameter.iduParameter))
+  val isu:  Instance[ISU] = Instantiate(new ISU(parameter))
+  val exu:  Instance[EXU] = Instantiate(new EXU(parameter))
+  val wbu:  Instance[WBU] = Instantiate(new WBU(parameter))
 
   val flush = wbu.io.redirect.valid
 

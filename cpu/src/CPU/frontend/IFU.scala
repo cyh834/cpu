@@ -43,39 +43,39 @@ class IFU(val parameter: CPUParameter)
     with ImplicitReset {
   override protected def implicitClock: Clock = io.clock
   override protected def implicitReset: Reset = io.reset
-  
-  //***********************/
+
+  // ***********************/
   // IF1
-  //***********************/
+  // ***********************/
   // pc
   val pc = RegInit(parameter.ResetVector.U(parameter.VAddrBits.W))
   val pcInstValid = Wire(UInt(4.W))
   val pcUpdate = io.redirect.valid || io.imem.req.fire
 
-  val snpc = Cat(pc(parameter.VAddrBits-1, 3), 0.U(3.W)) + 8.U //+ CacheReadWidth.U
+  val snpc = Cat(pc(parameter.VAddrBits - 1, 3), 0.U(3.W)) + 8.U // + CacheReadWidth.U
 
   val bpu: Instance[BPU] = Instantiate(new BPU(parameter.bpuParameter))
 
   val crosslineJump = bpu.io.out.bits.crosslineJump
   val s_idle :: s_crosslineJump :: Nil = Enum(2)
   val state = RegInit(s_idle)
-  switch(state){
-    is(s_idle){
-      when(pcUpdate && crosslineJump && !io.redirect.valid){ state := s_crosslineJump }
+  switch(state) {
+    is(s_idle) {
+      when(pcUpdate && crosslineJump && !io.redirect.valid) { state := s_crosslineJump }
     }
-    is(s_crosslineJump){
-      when(pcUpdate || io.redirect.valid){ state := s_idle }
+    is(s_crosslineJump) {
+      when(pcUpdate || io.redirect.valid) { state := s_idle }
     }
   }
   val crosslineJumpTarget = RegEnable(bpu.io.out.bits.pc, crosslineJump && pcUpdate)
-  
+
   // next pc
   val npc = MuxCase(
     snpc,
     Array(
       io.redirect.valid -> io.redirect.target,
       (state === s_crosslineJump) -> crosslineJumpTarget,
-      (bpu.io.out.valid && !crosslineJump) -> bpu.io.out.bits.pc,
+      (bpu.io.out.valid && !crosslineJump) -> bpu.io.out.bits.pc
     )
   )
 
@@ -86,18 +86,22 @@ class IFU(val parameter: CPUParameter)
   bpu.io.in.valid := io.imem.req.fire
   bpu.io.update <> io.bpuUpdate
 
-  pcInstValid :=  Mux((state === s_crosslineJump) && !io.redirect.valid, "b0001".U, (Fill(4, 1.U(1.W)) << pc(2, 1))(3, 0))
+  pcInstValid := Mux(
+    (state === s_crosslineJump) && !io.redirect.valid,
+    "b0001".U,
+    (Fill(4, 1.U(1.W)) << pc(2, 1))(3, 0)
+  )
 
   io.imem.req.valid := io.out.ready || !io.reset.asBool || !io.redirect.valid
   io.imem.req.bits.pc := pc
   io.imem.req.bits.brIdx := pcInstValid & bpu.io.out.bits.brIdx.asUInt
   io.imem.req.bits.instValid := pcInstValid
 
-  when (pcUpdate) { pc := npc }
+  when(pcUpdate) { pc := npc }
 
-  //***********************/
+  // ***********************/
   // IF2
-  //***********************/
+  // ***********************/
   // 得到指令
   io.imem.resp.ready := io.out.ready
   io.out.bits.pc := io.imem.resp.bits.pc
