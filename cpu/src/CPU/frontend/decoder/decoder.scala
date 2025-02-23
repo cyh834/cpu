@@ -166,9 +166,11 @@ object Decoder {
 
   object ImmType extends ImmUopField {
     override def name: String = "ImmType"
+    def isShamtd(instruction: Instruction): Boolean = instruction.args.map(_.name).contains("shamtd")
+    def isShamtw(instruction: Instruction): Boolean = instruction.args.map(_.name).contains("shamtw")
     override def genTable(pattern: CPUDecodePattern): BitPat = {
       val instruction = pattern.instruction
-      if (isI(instruction)) InstrType.I
+      if (isI(instruction) || isShamtd(instruction) || isShamtw(instruction)) InstrType.I
       else if (isS(instruction)) InstrType.S
       else if (isB(instruction)) InstrType.B
       else if (isU(instruction)) InstrType.U

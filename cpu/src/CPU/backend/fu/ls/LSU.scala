@@ -63,8 +63,8 @@ class LSU(parameter: CPUParameter)
   override protected def implicitReset: Reset = io.reset
 
   val size = LSUOpType.size(io.func)
-  val offset = io.src(0)(2, 0) << 3
   val addr = io.src(0) + io.imm
+  val offset = addr(2, 0) << 3.U
 
   // load
   io.load.req.bits.addr := addr
@@ -85,13 +85,27 @@ class LSU(parameter: CPUParameter)
     ) << addr(2, 0)
   }
   io.store.req.bits.addr := addr
-  io.store.req.bits.data := io.src(1)
-  io.store.req.bits.strb := mask(io.src(0), size)
+  io.store.req.bits.data := io.src(1) << offset
+  io.store.req.bits.strb := mask(addr, size)
   io.store.req.bits.size := size
   io.store.req.valid := io.isStore && io.valid
 
-  // result
-  io.result := HoldUnless(io.load.resp.bits.data >> offset, io.load.resp.fire)
+  // load_result
+  val load_data = io.load.resp.bits.data >> offset
+  val sign_extend_data = MuxLookup(size, 0.U)(Seq(
+    "b00".U -> SignExt(load_data(7, 0), parameter.XLEN),
+    "b01".U -> SignExt(load_data(15, 0), parameter.XLEN),
+    "b10".U -> SignExt(load_data(31, 0), parameter.XLEN),
+    "b11".U -> load_data(63, 0)
+  ))
+  val zero_extend_data = MuxLookup(size, 0.U)(Seq(
+    "b00".U -> ZeroExt(load_data(7, 0), parameter.XLEN),
+    "b01".U -> ZeroExt(load_data(15, 0), parameter.XLEN),
+    "b10".U -> ZeroExt(load_data(31, 0), parameter.XLEN),
+    "b11".U -> load_data(63, 0)
+  ))
+  val result = Mux(LSUOpType.loadIsUnsigned(io.func), zero_extend_data, sign_extend_data)
+  io.result := HoldUnless(result, io.load.resp.fire)
 
   io.out_valid := io.load.resp.fire || (io.isStore && io.store.req.ready)
 }

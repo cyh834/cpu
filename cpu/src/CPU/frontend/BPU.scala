@@ -138,7 +138,7 @@ class PredictIO(parameter: BPUParameter) extends Bundle {
   val pc = Output(UInt(parameter.vaddrBits.W))
   val brIdx = Output(Vec(parameter.waynum, Bool()))
   val crosslineJump = Output(Bool())
-  val jump = Output(Bool())
+  // val jump = Output(Bool())
 }
 
 class BTBUpdate(parameter: BPUParameter) extends Bundle {
@@ -235,6 +235,5 @@ class BPU(val parameter: BPUParameter)
 
   io.out.bits.crosslineJump := btbRead(waynum - 1).crosslineJump && btbHit(waynum - 1) &&  (0 to (waynum - 2)).map(i => !io.out.bits.brIdx(i)).reduce(_ && _)
   io.out.bits.pc := PriorityMux(io.out.bits.brIdx, target)
-  io.out.bits.jump := io.out.bits.brIdx.asUInt.orR
-  io.out.valid := RegNext(io.in.valid)
+  io.out.valid := RegNext(io.in.valid) && io.out.bits.brIdx.asUInt.orR
 }

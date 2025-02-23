@@ -32,7 +32,10 @@ in
   };
 
   verilated = scope.callPackage ./verilated.nix {
-    rtl = scope.tb-rtl.override { enable-layers = [ "Verification" ]; };
+    rtl = scope.tb-rtl.override { 
+      enable-layers = 
+        [ "Verification" "Verification.Assert"];
+    };
     dpi-lib = scope.tb-dpi-lib;
   };
   verilated-trace = scope.verilated.override {

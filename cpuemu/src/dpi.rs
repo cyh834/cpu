@@ -5,6 +5,8 @@ use std::ffi::{c_char, c_longlong};
 //use std::cmp::max;
 use std::sync::Mutex;
 use tracing::{debug, trace};
+use std::fs::File;
+use std::io::Write;
 
 use crate::drive::Driver;
 use crate::drive::SimState;
@@ -207,7 +209,10 @@ unsafe extern "C" fn sim_final() {
       SimState::Finished if driver.a0 != 0 => 1,
       _ => 4,
     };
-    std::process::exit(exit_code);
+    // 直接退出会导致波形文件出错，先写入到中间文件
+    // std::process::exit(exit_code);
+    let mut file = File::create("exit_code.txt").unwrap();
+    file.write_all(format!("{}", exit_code).as_bytes()).unwrap();
   }
 }
 

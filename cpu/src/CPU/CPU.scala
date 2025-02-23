@@ -213,6 +213,7 @@ class CPU(val parameter: CPUParameter)
   PipelineConnect(exu.io.out, wbu.io.in, true.B, flush)
 
   ifu.io.bpuUpdate <> exu.io.bpuUpdate
+  ifu.io.redirect := DontCare
   ifu.io.redirect <> wbu.io.redirect
 
   instUncache.io.flush := flush
@@ -222,16 +223,17 @@ class CPU(val parameter: CPUParameter)
 
   // bypass
   isu.io.forward <> exu.io.forward
+  isu.io.wb <> wbu.io.rfwrite
   exu.io.redirect_pc := isu.io.out.bits.pc // 检查下一个pc是否正确
 
   val regfile = Instantiate(new RegFile(parameter.regfileParameter))
   regfile.io.readPorts <> isu.io.rfread
   regfile.io.writePorts <> wbu.io.rfwrite
 
-  val scoreboard = Instantiate(new ScoreBoard(parameter.scoreboardParameter))
-  scoreboard.io.isu <> isu.io.scoreboard
-  scoreboard.io.wb <> wbu.io.scoreboard
-  scoreboard.io.flush := flush
+  // val scoreboard = Instantiate(new ScoreBoard(parameter.scoreboardParameter))
+  // scoreboard.io.isu <> isu.io.scoreboard
+  // scoreboard.io.wb <> wbu.io.scoreboard
+  // scoreboard.io.flush := flush
 
   val dataUncache = Instantiate(new DataUncache(parameter))
   dataUncache.io.flush := flush
@@ -271,8 +273,8 @@ class CPU(val parameter: CPUParameter)
   wbu.io.reset := io.reset
   regfile.io.clock := io.clock
   regfile.io.reset := io.reset
-  scoreboard.io.clock := io.clock
-  scoreboard.io.reset := io.reset
+  // scoreboard.io.clock := io.clock
+  // scoreboard.io.reset := io.reset
   dataUncache.io.clock := io.clock
   dataUncache.io.reset := io.reset
 

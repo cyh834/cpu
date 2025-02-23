@@ -94,30 +94,30 @@ object LSUOpType {
 //TODO: 更合理的编码?
 object ALUOpType {
   // shift optype
-  def sll = "b000_0000".U(FuOpType.width.W) // sll:     src1 << src2
-  def srl = "b000_0001".U(FuOpType.width.W) // srl:     src1 >> src2
-  def sra = "b000_0010".U(FuOpType.width.W) // sra:     src1 >> src2 (arithmetic)
+  def sll  = "b000_0000".U(FuOpType.width.W) // sll:     src1 << src2
+  def srl  = "b000_0001".U(FuOpType.width.W) // srl:     src1 >> src2
+  def sra  = "b000_0010".U(FuOpType.width.W) // sra:     src1 >> src2 (arithmetic)
 
   // add optype
-  def add = "b000_0011".U(FuOpType.width.W) // add:     src1 + src2
+  def add  = "b000_0011".U(FuOpType.width.W) // add:     src1 + src2
 
   // logic optype
-  def and = "b000_0100".U(FuOpType.width.W) // and:     src1 & src2
-  def or = "b000_0101".U(FuOpType.width.W) // or:      src1 | src2
-  def xor = "b000_0110".U(FuOpType.width.W) // xor:     src1 ^ src2
+  def and  = "b000_0100".U(FuOpType.width.W) // and:     src1 & src2
+  def or   = "b000_0101".U(FuOpType.width.W) // or:      src1 | src2
+  def xor  = "b000_0110".U(FuOpType.width.W) // xor:     src1 ^ src2
 
   // sub optype
-  def sub = "b010_0000".U(FuOpType.width.W) // sub:     src1 - src2
-  def sltu = "b010_0001".U(FuOpType.width.W) // sltu:    src1 < src2 (unsigned)
-  def slt = "b010_0010".U(FuOpType.width.W) // slt:     src1 < src2 (signed)
+  def sltu = "b010_0111".U(FuOpType.width.W) // sltu:    src1 < src2 (unsigned)
+  def slt  = "b010_1000".U(FuOpType.width.W) // slt:     src1 < src2 (signed)
+  def sub  = "b010_0011".U(FuOpType.width.W) // sub:     src1 - src2
 
-  // RV64 32bit optyp0
-  def addw = "b100_0000".U(FuOpType.width.W) // addw:    SEXT((src1 + src2)[31:0])
-  def subw = "b100_0001".U(FuOpType.width.W) // subw:    SEXT((src1 - src2)[31:0])
+  // RV64 32bit optype
+  def sllw = "b100_0000".U(FuOpType.width.W) // sllw:    SEXT((src1 << src2[4:0])[31:0])
+  def srlw = "b100_0001".U(FuOpType.width.W) // srlw:    SEXT((src1[31:0] >> src2[4:0])[31:0])
+  def sraw = "b100_0010".U(FuOpType.width.W) // sraw:    SEXT((src1[31:0] >> src2[4:0])[31:0]) (arithmetic)
 
-  def sllw = "b100_0100".U(FuOpType.width.W) // sllw:    SEXT((src1 << src2[4:0])[31:0])
-  def srlw = "b100_0101".U(FuOpType.width.W) // srlw:    SEXT((src1[31:0] >> src2[4:0])[31:0])
-  def sraw = "b100_0110".U(FuOpType.width.W) // sraw:    SEXT((src1[31:0] >> src2[4:0])[31:0]) (arithmetic)
+  def addw = "b100_0011".U(FuOpType.width.W) // addw:    SEXT((src1 + src2)[31:0])
+  def subw = "b110_0011".U(FuOpType.width.W) // subw:    SEXT((src1 - src2)[31:0])
 
   def isWordOp(func: UInt) = func(6)
   def isSubOp(func:  UInt) = func(5)

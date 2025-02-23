@@ -28,8 +28,8 @@ class BRH(val parameter: CPUParameter)
   val (src1, src2, func) = (io.src(0), io.src(1), io.func)
   val XLEN = parameter.XLEN
 
-  val sub = src1 - src2
-  val sltu = !sub(XLEN - 1)
+  val sub = (io.src(0) +& (~io.src(1)).asUInt) + 1.U
+  val sltu = !sub(XLEN)
   val slt = src1(XLEN - 1) ^ src2(XLEN - 1) ^ sltu
   val xor = src1 ^ src2
 

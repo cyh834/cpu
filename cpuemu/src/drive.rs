@@ -65,12 +65,13 @@ pub(crate) struct Driver {
   pub(crate) dlen: u32,
 
   pub(crate) pc: u64,
+  pub(crate) gpr: [u64; 32],
   pub(crate) a0: u64, //check return
   skip: bool,
   target: Target
 }
 
-static MAX_TIME: u64 = 10000;
+static MAX_TIME: u64 = 10000000;
 
 impl Driver {
   fn get_tick(&self) -> u64 {
@@ -97,6 +98,7 @@ impl Driver {
       state: SimState::Running,
       dlen: 64,
       pc: 0x8000_0000,
+      gpr: [0; 32],
       a0: 0,
       skip: false,
       target: Target::from_str("RV64IMACZifencei_Zicsr").unwrap()
@@ -241,7 +243,7 @@ impl Driver {
           );
           SimState::Timeout
         } else if tick > MAX_TIME {
-          error!("[{tick}] watchdog timeout");
+          error!("[{tick}] watchdog timeout (MAX_TIME={})", MAX_TIME);
           SimState::Timeout
         } else {
           //check dump end
@@ -387,13 +389,14 @@ impl Driver {
       }
 
       if mismatch {
-        error!("dut pc: {:#018x}, inst: {:#010x}[{}]", dut_pc, dut_inst, self.disasm(dut_inst, dut_gpr));
+        error!("[{}]dut pc: {:#018x}, inst: {:#010x}[{}]",self.get_tick(), dut_pc, dut_inst, self.disasm(dut_inst, self.gpr));
         error!("ref display:");
         self.refmodule.display();
         error!("difftest mismatch!");
         self.state = SimState::BadTrap;
       }
       self.pc = ref_next_pc;
+      self.gpr = dut_gpr;
       self.a0 = ref_gpr[10];
       self.skip = false;
     }

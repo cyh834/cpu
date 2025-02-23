@@ -105,7 +105,7 @@ class EXU(val parameter: CPUParameter)
     state := s_idle
   }
 
-  io.out.valid := io.in.valid && MuxLookup(fuType, true.B)(
+  io.out.valid := MuxLookup(fuType, io.in.valid)(
     Seq(
       FuType.ldu -> lsu.out_valid,
       FuType.stu -> lsu.out_valid,
@@ -126,7 +126,7 @@ class EXU(val parameter: CPUParameter)
       io.in.bits.isRVC -> (io.in.bits.pc + 2.U)
     )
   )
-  val mistarget = io.redirect_pc =/= target
+  val mistarget = (io.redirect_pc =/= target) && io.in.valid
 
   io.out.bits.redirect.target := target
   io.out.bits.redirect.valid := mistarget

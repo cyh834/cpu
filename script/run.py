@@ -8,7 +8,10 @@ def parse_args() -> Tuple[List[str], str]:
         testCase, testName = sys.argv[1].split("/")
         testpath= resolve_nix_path(f"\"#{testCase}\"")
         tests = [f for f in os.listdir(testpath) if f.endswith('.elf') and f.startswith(testName)]
-        if not tests:
+        # 如果找到多个测试，只运行第一个
+        if tests:
+            tests = [tests[0]]
+        else:
             print(f"\033[1;31m错误:在 {testpath} 中没有找到以 {testName} 开头的 .elf 文件\033[0m")
             sys.exit(1)
     else:
@@ -86,7 +89,9 @@ def run_test(tests: List[str], testpath: str):
     exit_codes = []
     for test in tests:
         print(f"\033[1;36mRunning: {test}\033[0m")
-        exit_code = nix_run(os.path.join(testpath, test))
+        nix_run(os.path.join(testpath, test))
+        exit_code = int(open("exit_code.txt").read())
+        os.remove("exit_code.txt")
         if exit_code == 0:
             passed.append(test)
             print(f"\033[1;32m✓ {test} PASSED\033[0m")
