@@ -8,7 +8,7 @@ in stdenv.mkDerivation {
 
   src = rtl;
 
-  nativeBuildInputs = [ verilator];
+  nativeBuildInputs = [ verilator ];
 
   # zlib is required for Rust to link against?
   # IIRC: zlib is required for 
