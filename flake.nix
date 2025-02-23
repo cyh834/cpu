@@ -6,9 +6,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    chisel-nix.url = "github:chipsalliance/chisel-nix";
   };
 
-  outputs = inputs@{ self, nixpkgs, flake-utils }:
+  outputs = inputs@{ self, nixpkgs, flake-utils, chisel-nix }:
     let overlay = import ./nix/overlay.nix;
     in {
       # System-independent attr
@@ -17,18 +18,19 @@
     } // flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
-          overlays = [ overlay ];
+          overlays = [ overlay chisel-nix.overlays.mill-flows ];
           inherit system;
         };
       in
+      with pkgs;
       {
-        formatter = pkgs.nixpkgs-fmt;
+        formatter = nixpkgs-fmt;
         legacyPackages = pkgs;
-        devShells.default = pkgs.mkShell ({
-          inputsFrom = [ pkgs.cpu.cpu-compiled pkgs.cpu.tb-dpi-lib ];
-          nativeBuildInputs = [ pkgs.cargo pkgs.rustfmt pkgs.rust-analyzer ];
+        devShells.default = mkShell ({
+          inputsFrom = [ cpu.cpu-compiled cpu.tb-dpi-lib ];
+          packages = [ cargo rustfmt rust-analyzer nixd nvfetcher ];
           RUST_SRC_PATH =
-            "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
-        } // pkgs.cpu.tb-dpi-lib.env // pkgs.cpu.cpu-compiled.env);
+            "${rust.packages.stable.rustPlatform.rustLibSrc}";
+        } // cpu.tb-dpi-lib.env // cpu.cpu-compiled.env);
       });
 }

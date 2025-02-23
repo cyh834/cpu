@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2024 Jiuyang Liu <liu@jiuyang.me>
+package build
 
 import mill._
 import mill.scalalib._
@@ -9,22 +10,15 @@ import mill.scalalib.scalafmt._
 import mill.scalalib.TestModule.Utest
 import mill.util.Jvm
 import coursier.maven.MavenRepository
-import $file.dependencies.chisel.build
-import $file.dependencies.rvdecoderdb.common
-import $file.common
 
 object deps {
   val scalaVer = "2.13.15"
   val mainargs = ivy"com.lihaoyi::mainargs:0.5.0"
   val oslib = ivy"com.lihaoyi::os-lib:0.9.1"
   val upickle = ivy"com.lihaoyi::upickle:3.3.1"
-}
-
-object chisel extends Chisel
-
-trait Chisel extends millbuild.dependencies.chisel.build.Chisel {
-  def crossValue = deps.scalaVer
-  override def millSourcePath = os.pwd / "dependencies" / "chisel"
+  val chisel = ivy"org.chipsalliance::chisel::0.0.0+0-no-vcs-SNAPSHOT"
+  val chiselPlugin = ivy"org.chipsalliance:chisel-plugin_${scalaVer}:0.0.0+0-no-vcs-SNAPSHOT"
+  val rvdecoderdb = ivy"me.jiuyang::rvdecoderdb-jvm:0.0.0+0-no-vcs-SNAPSHOT"
 }
 
 object rvdecoderdb extends RVDecoderDB
@@ -36,43 +30,31 @@ trait RVDecoderDB extends millbuild.dependencies.rvdecoderdb.common.RVDecoderDBJ
 }
 
 object cpu extends CPU
-trait CPU extends millbuild.common.HasChisel with ScalafmtModule with millbuild.common.HasRVDecoderDB {
+trait CPU extends common.HasChisel with ScalafmtModule{
   def scalaVersion = T(deps.scalaVer)
 
-  def chiselModule = Some(chisel)
-  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
-  def chiselIvy = None
-  def chiselPluginIvy = None
+  def rvdecoderdbIvy = v.rvdecoderdb
+  def riscvOpcodesPath  = T.input(PathRef(millSourcePath / os.up / "dependencies" / "riscv-opcodes"))
 
-  def rvdecoderdbModule = rvdecoderdb
-  def riscvOpcodesPath  = T.input(PathRef(os.pwd / "dependencies" / "riscv-opcodes"))
+  def chiselModule = None
+  def chiselPluginJar = Task(None)
+  def chiselIvy = Some(deps.chisel)
+  def chiselPluginIvy = Some(deps.chiselPlugin)
 }
 
 object elaborator extends Elaborator
-trait Elaborator extends millbuild.common.ElaboratorModule with ScalafmtModule {
-  def scalaVersion = T(deps.scalaVer)
-
-  def panamaconverterModule = panamaconverter
+trait Elaborator extends common.ElaboratorModule with ScalafmtModule {
+  def scalaVersion = Task(deps.scalaVer)
 
   def circtInstallPath =
-    T.input(PathRef(os.Path(T.ctx().env("CIRCT_INSTALL_PATH"))))
+    Task.input(PathRef(os.Path(T.ctx().env("CIRCT_INSTALL_PATH"))))
 
   def generators = Seq(cpu)
 
   def mainargsIvy = deps.mainargs
 
-  def chiselModule = Some(chisel)
-  def chiselPluginJar = T(Some(chisel.pluginModule.jar()))
-  def chiselPluginIvy = None
-  def chiselIvy = None
-}
-
-object panamaconverter extends PanamaConverter
-trait PanamaConverter extends millbuild.dependencies.chisel.build.PanamaConverter {
-  def crossValue = deps.scalaVer
-
-  override def millSourcePath =
-    os.pwd / "dependencies" / "chisel" / "panamaconverter"
-
-  def scalaVersion = T(deps.scalaVer)
+  def chiselModule = None
+  def chiselPluginJar = Task(None)
+  def chiselPluginIvy = Some(deps.chiselPlugin)
+  def chiselIvy = Some(deps.chisel)
 }
