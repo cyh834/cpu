@@ -344,10 +344,6 @@ impl Driver {
 
       let ref_event = self.refmodule.step();
 
-      // load & store
-      // if dut.is_load || dut.is_store {
-
-      // }
       // check reg
       let mut mismatch = false;
       let ref_next_pc = ref_event.pc;
@@ -394,6 +390,24 @@ impl Driver {
           );
           mismatch = true;
         }
+      }
+
+      //check inst 
+      let ref_inst = if dut.is_rvc {
+        let mut inst = self.bus.read_mem_unaligned(dut_pc, 2).unwrap();
+        inst.reverse();
+        let inst_hex = hex::encode(inst);
+        u32::from_str_radix(&inst_hex, 16).unwrap()
+      } else {
+        let mut inst = self.bus.read_mem_unaligned(dut_pc, 4).unwrap();
+        inst.reverse();
+        let inst_hex = hex::encode(inst);
+        u32::from_str_radix(&inst_hex, 16).unwrap()
+      };
+
+      if ref_inst != dut_inst {
+        error!("inst mismatch! ref={:#x}, dut={:#x}", ref_inst, dut_inst);
+        mismatch = true;
       }
 
       if mismatch {

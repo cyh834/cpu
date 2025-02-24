@@ -48,14 +48,14 @@ class ALU(val parameter: CPUParameter)
 
   val res = MuxLookup(func(4, 0), adder)(
     Seq(
-      ALUOpType.sll -> (ssrc1 << shamt)(XLEN - 1, 0),
-      ALUOpType.srl -> (ssrc1 >> shamt),
-      ALUOpType.sra -> (ssrc1.asSInt >> shamt).asUInt,
-      ALUOpType.sltu -> ZeroExt(sltu(0), XLEN),
-      ALUOpType.slt -> ZeroExt(slt(0), XLEN),
-      ALUOpType.and -> (src1 & src2),
-      ALUOpType.or -> (src1 | src2),
-      ALUOpType.xor -> xor
+      ALUOpType.sll(4, 0) -> (ssrc1 << shamt)(XLEN - 1, 0),
+      ALUOpType.srl(4, 0) -> (ssrc1 >> shamt),
+      ALUOpType.sra(4, 0) -> (ssrc1.asSInt >> shamt).asUInt,
+      ALUOpType.sltu(4, 0) -> ZeroExt(sltu(0), XLEN),
+      ALUOpType.slt(4, 0) -> ZeroExt(slt(0), XLEN),
+      ALUOpType.and(4, 0) -> (src1 & src2),
+      ALUOpType.or(4, 0) -> (src1 | src2),
+      ALUOpType.xor(4, 0) -> xor
     )
   )
 
@@ -63,37 +63,34 @@ class ALU(val parameter: CPUParameter)
 
   // check
   when(func === ALUOpType.add) {
-    assert(io.result === (src1 + src2)(XLEN - 1, 0))
+    assert(io.result === (src1 + src2)(XLEN - 1, 0), "%x + %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.sub) {
-    assert(io.result === (src1 - src2)(XLEN - 1, 0))
+    assert(io.result === (src1 - src2)(XLEN - 1, 0), "%x - %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.sll) {
-    assert(io.result === (src1 << src2(5, 0))(XLEN - 1, 0))
+    assert(io.result === (src1 << src2(5, 0))(XLEN - 1, 0), "%x << %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.srl) {
-    assert(io.result === (src1 >> src2(5, 0)))
+    assert(io.result === (src1 >> src2(5, 0)), "%x >> %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.sra) {
-    assert(io.result === (src1.asSInt >> src2(5, 0)).asUInt)
+    assert(io.result === (src1.asSInt >> src2(5, 0)).asUInt, "%x.asSInt >> %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.and) {
-    assert(io.result === (src1 & src2))
+    assert(io.result === (src1 & src2), "%x & %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.or) {
-    assert(io.result === (src1 | src2))
+    assert(io.result === (src1 | src2), "%x | %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.xor) {
-    assert(io.result === (src1 ^ src2))
+    assert(io.result === (src1 ^ src2), "%x ^ %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.sltu) {
-    assert(io.result === (src1.asUInt < src2.asUInt).asUInt)
+    assert(io.result === (src1.asUInt < src2.asUInt).asUInt, "%x.asUInt < %x.asUInt =%x %x", src1, src2, io.result, ZeroExt(sltu(0), XLEN))
   }.elsewhen(func === ALUOpType.slt) {
-    assert(io.result === (src1.asSInt < src2.asSInt).asUInt)
+    assert(io.result === (src1.asSInt < src2.asSInt).asUInt, "%x.asSInt < %x.asSInt =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.addw) {
-    assert(io.result === SignExt((src1 + src2)(31, 0), 64))
+    assert(io.result === SignExt((src1 + src2)(31, 0), 64), "%x + %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.subw) {
-    assert(io.result === SignExt((src1 - src2)(31, 0), 64))
+    assert(io.result === SignExt((src1 - src2)(31, 0), 64), "%x - %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.sllw) {
-    assert(io.result === SignExt((src1 << src2(4, 0))(31, 0), 64))
+    assert(io.result === SignExt((src1 << src2(4, 0))(31, 0), 64), "%x << %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.srlw) {
-    assert(io.result === SignExt((src1(31, 0) >> src2(4, 0))(31, 0), 64))
+    assert(io.result === SignExt((src1(31, 0) >> src2(4, 0))(31, 0), 64), "%x >> %x =%x", src1, src2, io.result)
   }.elsewhen(func === ALUOpType.sraw) {
-    assert(io.result === SignExt((src1(31, 0).asSInt >> src2(4, 0))(31, 0), 64))
-  }.otherwise {
-    assert(false.B, "ALU: unknown func %x", func)
+    assert(io.result === SignExt((src1(31, 0).asSInt >> src2(4, 0))(31, 0), 64), "%x.asSInt >> %x =%x", src1, src2, io.result)
   }
-
 }

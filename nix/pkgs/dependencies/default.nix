@@ -4,6 +4,8 @@
 , fetchMillDeps
 , publishMillJar
 , git
+, makeSetupHook
+, writeText
 , ...
 }:
 let
@@ -34,4 +36,37 @@ lib.makeScope newScope (scope: {
         inherit chiselDeps;
       };
     };
+
+  rvdecoderdb =
+    let
+      rvdecoderdbDeps = fetchMillDeps {
+        name = "rvdecoderdb";
+        src = dependencies.rvdecoderdb.src;
+        fetchTargets = [ "rvdecoderdb.jvm" ];
+        nativeBuildInputs = [
+          git
+        ];
+        millDepsHash = "sha256-++tktP3OYw7HDMRerjNk7L87GUzXu69iFUdSilCnUF4=";
+      };
+    in
+    publishMillJar {
+      name = "rvdecoderdb-snapshot";
+      src = dependencies.rvdecoderdb.src;
+      publishTargets = [ "rvdecoderdb.jvm" ];
+      buildInputs = [ rvdecoderdbDeps.setupHook ];
+      nativeBuildInputs = [
+        git
+      ];
+      passthru = {
+        inherit rvdecoderdbDeps;
+      };
+    };
+  
+  riscv-opcodes = makeSetupHook { name = "setup-riscv-opcodes-src"; } (writeText "setup-riscv-opcodes-src.sh" ''
+    setupRiscvOpcodes() {
+      mkdir -p dependencies
+      ln -sfT "${dependencies.riscv-opcodes.src}" "dependencies/riscv-opcodes"
+    }
+    prePatchHooks+=(setupRiscvOpcodes)
+  '');
 })

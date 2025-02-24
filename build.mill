@@ -22,7 +22,7 @@ object deps {
 }
 
 object cpu extends CPU
-trait CPU extends common.HasChisel with ScalafmtModule{
+trait CPU extends common.HasChisel with common.HasRVDecoderDB with ScalafmtModule{
   def scalaVersion = T(deps.scalaVer)
 
   def rvdecoderdbIvy = deps.rvdecoderdb

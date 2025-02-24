@@ -24,6 +24,9 @@ class IBUF2IDU(vaddrBits: Int) extends Bundle {
   val inst = UInt(32.W)
   val isRVC = Bool()
   val pred_taken = Bool()
+
+  // debug
+  val debug_inst = UInt(32.W) // 可能是16位的压缩指令
 }
 
 class IBUFInterface(parameter: IBUFParameter) extends Bundle {
@@ -130,6 +133,9 @@ class IBUF(val parameter: IBUFParameter)
     rd_ptr := 0.U
     fifo_counter := 0.U
   }
+  
+  // debug
+  io.out.bits.debug_inst := Mux(memReg(rd_ptr).isRVC, Cat(0.U(16.W), memReg(rd_ptr).inst), Cat(memReg(rd_ptr + 1.U).inst, memReg(rd_ptr).inst))
 
   // redirect
   // io.redirect.valid := (rdrs >= 2.U) && !io.out.bits.isRVC && ((memReg(rd_ptr).pc + 2.U) =/= memReg(rd_ptr + 1.U).pc)

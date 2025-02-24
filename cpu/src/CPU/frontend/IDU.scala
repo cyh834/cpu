@@ -117,7 +117,7 @@ class IDU(val parameter: IDUParameter)
   io.out.valid := io.in.valid
 
   // debug
-  io.out.bits.instr := instr
+  io.out.bits.instr := io.in.bits.debug_inst
 }
 
 //TODO: 移到IFU作为pre-decode?

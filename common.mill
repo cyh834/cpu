@@ -39,9 +39,9 @@ trait HasChisel extends ScalaModule {
 }
 
 trait HasRVDecoderDB extends ScalaModule {
-  def rvdecoderdbModule: ScalaModule
+  def rvdecoderdbIvy: Dep
   def riscvOpcodesPath:  T[PathRef]
-  def moduleDeps = super.moduleDeps ++ Seq(rvdecoderdbModule)
+  def ivyDeps = T(super.ivyDeps() ++ Seq(rvdecoderdbIvy))
   def riscvOpcodesTar:    T[PathRef]      = T {
     val tmpDir = os.temp.dir()
     os.makeDir(tmpDir / "unratified")

@@ -104,6 +104,25 @@ impl ShadowBus {
     }
   }
 
+  pub fn read_mem_unaligned(&self, addr: u64, size: u64) -> anyhow::Result<Vec<u8>> {
+    let start = addr as usize;
+    let end = (addr + size) as usize;
+
+    let handler = self.devices.iter().find(|d| match d {
+      ShadowBusDevice { base, size, device: _ } => *base <= start && end <= (*base + *size),
+    });
+
+    match handler {
+      Some(ShadowBusDevice { base, size: _, device }) => {
+        let offset = start - *base;
+        let data = device.read_mem(offset, size as usize);
+        Ok(data)
+      }
+      None => {
+        anyhow::bail!("read addr={addr:#x} size={size}B leads to nowhere!");
+      }
+    }
+  }
   // size: 1 << awsize
   // bus_size: AXI bus width in bytes
   // masks: write strobes, len=bus_size

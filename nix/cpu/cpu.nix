@@ -44,7 +44,7 @@ let
             root = ./../..;
             fileset = unions [ ./../../build.mill ./../../common.mill ];
           };
-        buildInputs = with mill-dependencies; [ chisel.setupHook ];
+        buildInputs = with mill-dependencies; [ chisel.setupHook rvdecoderdb.setupHook riscv-opcodes];
         millDepsHash = "sha256-NybS2AXRQtXkgHd5nH4Ltq3sxZr5aZ4VepiT79o1AWo=";
       };
 
@@ -64,6 +64,8 @@ let
 
       passthru.millDeps.setupHook
       chisel.setupHook
+      rvdecoderdb.setupHook
+      riscv-opcodes
     ];
 
     env = {
