@@ -25,11 +25,19 @@ object FuType {
   def dontCare = BitPat.dontCare(width)
   def apply() = UInt(width.W)
 
-  def isjmp(fu: UInt) = fu === jmp
+  def isalu(fu: UInt) = fu === alu
   def isbrh(fu: UInt) = fu === brh
   def isldu(fu: UInt) = fu === ldu
   def isstu(fu: UInt) = fu === stu
+  def ismou(fu: UInt) = fu === mou
+  def ismul(fu: UInt) = fu === mul
+  def isdiv(fu: UInt) = fu === div
+  def isjmp(fu: UInt) = fu === jmp
+  def isfence(fu: UInt) = fu === fence
+  def iscsr(fu: UInt) = fu === csr
+
   def islsu(fu: UInt) = isldu(fu) || isstu(fu)
+  def ismdu(fu: UInt) = ismul(fu) || isdiv(fu)
 }
 
 object FuOpType {
@@ -182,29 +190,27 @@ object FenceOpType {
 
 object MDUOpType {
   // mul
-  // bit encoding: | type (2bit) | isWord(1bit) | opcode(2bit) |
-  def mul = "b00000".U(FuOpType.width.W)
-  def mulh = "b00001".U(FuOpType.width.W)
-  def mulhsu = "b00010".U(FuOpType.width.W)
-  def mulhu = "b00011".U(FuOpType.width.W)
-  def mulw = "b00100".U(FuOpType.width.W)
-
-  def mulw7 = "b01100".U(FuOpType.width.W)
+  // bit encoding: | type (1bit) | isWord(1bit) | opcode(2bit) |
+  def mul    = "b0000".U(FuOpType.width.W)
+  def mulh   = "b0001".U(FuOpType.width.W)
+  def mulhsu = "b0010".U(FuOpType.width.W)
+  def mulhu  = "b0011".U(FuOpType.width.W)
+  def mulw   = "b0100".U(FuOpType.width.W)
 
   // div
-  // bit encoding: | type (2bit) | isWord(1bit) | isSign(1bit) | opcode(1bit) |
-  def div = "b10000".U(FuOpType.width.W)
-  def divu = "b10010".U(FuOpType.width.W)
-  def rem = "b10001".U(FuOpType.width.W)
-  def remu = "b10011".U(FuOpType.width.W)
+  // bit encoding: | type (1bit) | isWord(1bit) | isSign(1bit) | opcode(1bit) |
+  def div    = "b1000".U(FuOpType.width.W)
+  def divu   = "b1010".U(FuOpType.width.W)
+  def rem    = "b1001".U(FuOpType.width.W)
+  def remu   = "b1011".U(FuOpType.width.W)
 
-  def divw = "b10100".U(FuOpType.width.W)
-  def divuw = "b10110".U(FuOpType.width.W)
-  def remw = "b10101".U(FuOpType.width.W)
-  def remuw = "b10111".U(FuOpType.width.W)
+  def divw   = "b1100".U(FuOpType.width.W)
+  def divuw  = "b1110".U(FuOpType.width.W)
+  def remw   = "b1101".U(FuOpType.width.W)
+  def remuw  = "b1111".U(FuOpType.width.W)
 
-  def isMul(op: UInt) = !op(4)
-  def isDiv(op: UInt) = op(4)
+  def isMul(op: UInt) = !op(3)
+  def isDiv(op: UInt) = op(3)
 
   def isDivSign(op: UInt) = isDiv(op) && !op(1)
   def isW(op:       UInt) = op(2)

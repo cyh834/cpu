@@ -58,8 +58,8 @@ class EXU(val parameter: CPUParameter)
 
   val (fuType, fuOpType, brtype): (UInt, UInt, UInt) = (io.in.bits.fuType, io.in.bits.fuOpType, io.in.bits.brtype)
 
-  val s_idle :: s_lsu :: Nil = Enum(2)
-  val state = RegInit(0.U(2.W))
+  val s_idle :: s_busy :: Nil = Enum(2)
+  val state = RegInit(s_idle)
 
   // todo: 用循环实现?
   val alu = Instantiate(new ALU(parameter)).io
@@ -83,33 +83,41 @@ class EXU(val parameter: CPUParameter)
 
   val lsu = Instantiate(new LSU(parameter)).io
   val islsu = FuType.islsu(fuType)
-  val lsu_valid = (state === s_idle) && islsu && !io.flush && io.in.valid
   lsu.clock := io.clock
   lsu.reset := io.reset
   lsu.src := io.in.bits.src
   lsu.imm := io.in.bits.imm
   lsu.func := fuOpType
   lsu.isStore := FuType.isstu(fuType)
-  lsu.valid := lsu_valid
+  lsu.valid := (state === s_idle) && islsu && !io.flush && io.in.valid
   io.load <> lsu.load
   io.store <> lsu.store
+
+  val mdu = Instantiate(new MDU(parameter)).io
+  val ismdu = FuType.ismdu(fuType)
+  mdu.clock := io.clock
+  mdu.reset := io.reset
+  mdu.flush := io.flush
+  mdu.in.bits.src := io.in.bits.src
+  mdu.in.bits.func := fuOpType
+  mdu.in.valid := (state === s_idle) && ismdu && !io.flush && io.in.valid
 
   val csr = Instantiate(new CSR(parameter)).io
   csr.clock := io.clock
   csr.reset := io.reset
 
-  when(lsu_valid) {
-    state := s_lsu
+  when(lsu.valid || mdu.in.valid) {
+    state := s_busy
   }
-  when(io.out.fire | io.flush) {
+  when(io.out.fire || io.flush) {
     state := s_idle
   }
 
-  io.out.valid := MuxLookup(fuType, io.in.valid)(
-    Seq(
-      FuType.ldu -> lsu.out_valid,
-      FuType.stu -> lsu.out_valid
-      // FuType.mdu -> mdu.out_valid
+  io.out.valid := MuxCase(
+    io.in.valid,
+    Array(
+      islsu -> lsu.out_valid,
+      ismdu -> mdu.out.valid
     )
   )
 
@@ -154,11 +162,12 @@ class EXU(val parameter: CPUParameter)
 
   io.out.bits.wb.wen := io.in.bits.rfWen
   io.out.bits.wb.addr := io.in.bits.ldest
-  io.out.bits.wb.data := MuxLookup(fuType, alu.result)(
-    Seq(
-      FuType.jmp -> jmp.result,
-      FuType.ldu -> lsu.result,
-      FuType.stu -> lsu.result
+  io.out.bits.wb.data := MuxCase(
+    alu.result,
+    Array(
+      isJmp -> jmp.result,
+      islsu -> lsu.result,
+      ismdu -> mdu.out.bits.result
     )
   )
 
