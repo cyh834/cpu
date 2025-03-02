@@ -18,6 +18,7 @@ object deps {
   val upickle = ivy"com.lihaoyi::upickle:3.3.1"
   val chisel = ivy"org.chipsalliance::chisel::0.0.0+0-no-vcs-SNAPSHOT"
   val chiselPlugin = ivy"org.chipsalliance:chisel-plugin_${scalaVer}:0.0.0+0-no-vcs-SNAPSHOT"
+  // val chiselPlugin = ivy"org.chipsalliance:::chisel-plugin:0.0.0+0-no-vcs-SNAPSHOT"
   val rvdecoderdb = ivy"me.jiuyang::rvdecoderdb-jvm:0.0.0+0-no-vcs-SNAPSHOT"
 }
 
