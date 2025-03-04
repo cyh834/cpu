@@ -27,8 +27,8 @@
         formatter = nixpkgs-fmt;
         legacyPackages = pkgs;
         devShells.default = mkShell ({
-          inputsFrom = [ cpu.cpu-compiled cpu.tb-dpi-lib ];
-          packages = [ cargo rustfmt rust-analyzer nixd nvfetcher ];
+          inputsFrom = [ cpu.cpu-compiled cpu.tb-dpi-lib];
+          packages = [ cargo rustfmt rust-analyzer nixd nvfetcher];
           RUST_SRC_PATH =
             "${rust.packages.stable.rustPlatform.rustLibSrc}";
         } // cpu.tb-dpi-lib.env // cpu.cpu-compiled.env);

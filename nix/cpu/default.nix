@@ -41,6 +41,9 @@ in
   verilated-trace = scope.verilated.override {
     dpi-lib = scope.verilated.dpi-lib.override { enable-trace = true; };
   };
+
+  run = scope.callPackage ./run.nix { };
+
   vcs = scope.callPackage ./vcs.nix {
     dpi-lib = scope.tb-dpi-lib.override {
       sv2023 = false;

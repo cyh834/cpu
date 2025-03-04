@@ -34,7 +34,5 @@ final: prev: {
 
   cpu = final.callPackage ./cpu { };
 
-  nexus-am = final.callPackage ./test/nexus-am.nix { };
-
-  test = final.callPackage ./test/test.nix { };
+  test = final.callPackage ./test { };
 }
