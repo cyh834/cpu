@@ -92,7 +92,7 @@ class IFU(val parameter: CPUParameter)
     (Fill(4, 1.U(1.W)) << pc(2, 1))(3, 0)
   )
 
-  io.imem.req.valid := io.out.ready || !io.reset.asBool || !io.redirect.valid
+  io.imem.req.valid := io.out.ready && !io.reset.asBool && !io.redirect.valid
   io.imem.req.bits.pc := pc
   io.imem.req.bits.brIdx := pcInstValid & bpu.io.out.bits.brIdx.asUInt
   io.imem.req.bits.instValid := pcInstValid

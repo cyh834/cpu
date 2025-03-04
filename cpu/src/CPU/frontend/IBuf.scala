@@ -35,7 +35,7 @@ class IBUFInterface(parameter: IBUFParameter) extends Bundle {
   val flush = Input(Bool())
   val in = Flipped(Decoupled(new IFU2IBUF(parameter.vaddrBits)))
   val out = Decoupled(new IBUF2IDU(parameter.vaddrBits))
-  // val redirect = new RedirectIO(parameter.vaddrBits)
+  val redirect = new RedirectIO(parameter.vaddrBits)
 }
 
 // 指令缓存目前一次只能写入一条指令，遇到压缩指令就flush bpu, 未来再优化
@@ -109,7 +109,7 @@ class IBUF(val parameter: IBUFParameter)
     exp.io.out
   }
 
-  io.out.valid := Mux(memReg(rd_ptr).isRVC, rdrs >= 1.U, rdrs >= 2.U) // && !io.redirect.valid
+  io.out.valid := Mux(memReg(rd_ptr).isRVC, rdrs >= 1.U, rdrs >= 2.U)  && !io.redirect.valid
   io.out.bits.pc := memReg(rd_ptr).pc
   io.out.bits.inst := Mux(
     memReg(rd_ptr).isRVC,
@@ -128,16 +128,23 @@ class IBUF(val parameter: IBUFParameter)
     0.U
   )
 
-  when(io.flush) { // || io.redirect.valid) {
-    wr_ptr := 0.U
-    rd_ptr := 0.U
-    fifo_counter := 0.U
-  }
-  
   // debug
   io.out.bits.debug_inst := Mux(memReg(rd_ptr).isRVC, Cat(0.U(16.W), memReg(rd_ptr).inst), Cat(memReg(rd_ptr + 1.U).inst, memReg(rd_ptr).inst))
 
-  // redirect
-  // io.redirect.valid := (rdrs >= 2.U) && !io.out.bits.isRVC && ((memReg(rd_ptr).pc + 2.U) =/= memReg(rd_ptr + 1.U).pc)
-  // io.redirect.target := memReg(rd_ptr).pc
+  // predict crossline jump error
+  io.redirect.valid := (rdrs >= 2.U) && !memReg(rd_ptr).isRVC && ((memReg(rd_ptr).pc + 2.U) =/= memReg(rd_ptr + 1.U).pc)
+  io.redirect.target := (memReg(rd_ptr).pc + 2.U)
+  when(io.redirect.valid) {
+    rd_ptr := rd_ptr
+    wr_ptr := rd_ptr + 1.U
+    fifo_counter := 1.U
+  }
+  // update bpu?
+
+  when(io.flush) {
+    rd_ptr := 0.U
+    wr_ptr := 0.U
+    fifo_counter := 0.U
+  }
+  
 }

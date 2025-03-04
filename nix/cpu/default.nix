@@ -25,7 +25,7 @@ in
   };
   tb-mlirbc =
     scope.callPackage ./mlirbc.nix { elaborate = scope.tb-elaborate; };
-  tb-rtl = scope.callPackage ./rtl.nix { mlirbc = scope.tb-mlirbc; };
+  tb-rtl = scope.callPackage ./rtl.nix { mlirbc = scope.tb-mlirbc;};
   tb-dpi-lib = scope.callPackage ./dpi-lib.nix {
     inherit dpiLibName;
     ref-module = libnemu;

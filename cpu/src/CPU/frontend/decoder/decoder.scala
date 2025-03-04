@@ -78,10 +78,11 @@ object Decoder {
         case i if Seq("slti", "slt").contains(i)        => ALUOpType.slt
         case i if Seq("sltiu", "sltu").contains(i)      => ALUOpType.sltu
         case i if Seq("sll", "slli").contains(i)        => ALUOpType.sll
-        case i if Seq("sub", "subw").contains(i)        => ALUOpType.sub
+        case i if Seq("sub").contains(i)                => ALUOpType.sub
         case i if Seq("sra", "srai").contains(i)        => ALUOpType.sra
         case i if Seq("srl", "srli").contains(i)        => ALUOpType.srl
         case i if Seq("addiw", "addw").contains(i)      => ALUOpType.addw
+        case i if Seq("subw").contains(i)               => ALUOpType.subw
         case i if Seq("slliw", "sllw").contains(i)      => ALUOpType.sllw
         case i if Seq("sraiw", "sraw").contains(i)      => ALUOpType.sraw
         case i if Seq("srliw", "srlw").contains(i)      => ALUOpType.srlw

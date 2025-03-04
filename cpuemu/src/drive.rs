@@ -5,7 +5,7 @@ use elf::{
   ElfStream,
 };
 use regex::Captures;
-use riscv_isa::{decode_full, Decoder, Instruction, Target};
+use riscv_isa::{decode_full, decode_compressed, Target};
 use std::collections::HashMap;
 use std::os::unix::fs::FileExt;
 use std::str::FromStr;
@@ -18,7 +18,7 @@ use crate::dpi::dump_wave;
 use crate::{
   bus::ShadowBus,
   dpi::{AxiReadPayload, RetireData},
-  ref_module::{self, nemu::NemuEvent, RefModule},
+  ref_module::{RefModule, nemu::NemuEvent},
   SimArgs,
 };
 
@@ -45,6 +45,13 @@ pub enum SimState {
 const EXIT_POS: u32 = 0x4000_0000;
 const EXIT_CODE: u32 = 0xdead_beef;
 
+//#[derive(Debug)]
+struct Itrace {
+  pc: u64,
+  inst: u32,
+  disasm: String
+}
+
 pub(crate) struct Driver {
   #[cfg(feature = "difftest")]
   refmodule: RefModule,
@@ -69,6 +76,7 @@ pub(crate) struct Driver {
   pub(crate) a0: u64, //check return
   skip: bool,
   target: Target,
+  itrace_stack: Vec<Itrace>,
 }
 
 static MAX_TIME: u64 = 10000000;
@@ -102,6 +110,7 @@ impl Driver {
       a0: 0,
       skip: false,
       target: Target::from_str("RV64IMACZifencei_Zicsr").unwrap(),
+      itrace_stack: Vec::new(),
     };
     self_
   }
@@ -270,7 +279,11 @@ impl Driver {
   }
 
   pub(crate) fn disasm(&mut self, inst: u32, gpr: [u64; 32]) -> String {
-    let raw = decode_full(inst, &self.target).to_string();
+    let raw = if inst % 4 == 3 {
+      decode_full(inst, &self.target).to_string()
+    } else {
+      decode_compressed(inst as u16, &self.target).to_string()
+    };
     let re = regex::Regex::new(
       r"(?x)
         (\b\d+\b)       # 匹配纯数字offset(第1捕获组)
@@ -343,6 +356,7 @@ impl Driver {
       }
 
       let ref_event = self.refmodule.step();
+      let mut error_msg = String::new();
 
       // check reg
       let mut mismatch = false;
@@ -358,7 +372,7 @@ impl Driver {
       //check pc
       if !self.skip {
         if self.pc != dut_pc {
-          error!("pc mismatch! ref={:#x}, dut={:#x}", self.pc, dut_pc);
+          error_msg += &format!("\tpc mismatch! ref={:#x}, dut={:#x}\n", self.pc, dut_pc);
           mismatch = true;
         }
       }
@@ -366,13 +380,7 @@ impl Driver {
       //check gpr
       for i in 0..32 {
         if ref_gpr[i] != dut_gpr[i] {
-          error!(
-            "gpr{}({}) mismatch! ref={:#x}, dut={:#x}",
-            i,
-            gpr_name(i),
-            ref_gpr[i],
-            dut_gpr[i]
-          );
+          error_msg += &format!("\tgpr{}({}) mismatch! ref={:#x}, dut={:#x}\n", i, gpr_name(i), ref_gpr[i], dut_gpr[i]);
           mismatch = true;
         }
       }
@@ -382,12 +390,7 @@ impl Driver {
         let ref_csr = ref_csr[i];
         let dut_csr = dut_csr[i];
         if ref_csr != dut_csr {
-          error!(
-            "csr{} mismatch! ref={:#x}, dut={:#x}",
-            csr_name(i),
-            ref_csr,
-            dut_csr
-          );
+          error_msg += &format!("\tcsr{} mismatch! ref={:#x}, dut={:#x}\n", csr_name(i), ref_csr, dut_csr);
           mismatch = true;
         }
       }
@@ -406,27 +409,42 @@ impl Driver {
       };
 
       if ref_inst != dut_inst {
-        error!("inst mismatch! ref={:#x}, dut={:#x}", ref_inst, dut_inst);
+        error_msg += &format!("\tinst mismatch! ref={:#x}, dut={:#x}\n", ref_inst, dut_inst);
         mismatch = true;
       }
 
+      let disasm_result = self.disasm(dut_inst, self.gpr);
       if mismatch {
         error!(
-          "[{}]dut pc: {:#018x}, inst: {:#010x}[{}]",
-          self.get_tick(),
-          dut_pc,
-          dut_inst,
-          self.disasm(dut_inst, self.gpr)
+          "\x1b[31m\n{div}\nCRITICAL: Simulation Mismatch Detected!\n{div}\x1b[0m\n\
+          \x1b[31m[ Difftest Mismatch @ Cycle: {cycle:10} ]\x1b[0m\n\
+          \x1b[33m• Current PC:\x1b[0m     {pc:#018x}\n\
+          \x1b[33m• Instruction:\x1b[0m    {inst:#010x} ({disasm})\n\
+          \x1b[33m• Error Message:\x1b[0m\n{error_msg}\n\
+          \x1b[35m{line}\n\
+          Last 10 executed instructions:\x1b[0m\n{itrace}\n\
+          \x1b[35m{line}\n\
+          \x1b[36mReference Model Status:\x1b[0m\n{ref_status}",
+          div = "=".repeat(60),
+          line = "-".repeat(60),
+          cycle = self.get_tick(),
+          pc = dut_pc,
+          inst = dut_inst,
+          disasm = disasm_result,
+          itrace = self.itrace_stack.iter().rev().take(10).enumerate().map(|(i, t)| 
+            format!("[{:2}] PC: {:#018x} | {:#010x} | {}", 9 - i, t.pc, t.inst, t.disasm)
+          ).collect::<Vec<_>>().join("\n"),
+          ref_status = self.refmodule.status()
         );
-        error!("ref display:");
-        self.refmodule.display();
-        error!("difftest mismatch!");
+
         self.state = SimState::BadTrap;
       }
+
       self.pc = ref_next_pc;
       self.gpr = dut_gpr;
       self.a0 = ref_gpr[10];
       self.skip = false;
+      self.itrace_stack.push(Itrace { pc: dut_pc, inst: dut_inst, disasm: disasm_result });
     }
   }
 }

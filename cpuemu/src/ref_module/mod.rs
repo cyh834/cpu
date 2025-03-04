@@ -1,5 +1,9 @@
 pub mod nemu;
 pub use nemu::*;
+use std::ffi::c_int;
+use libc::{pipe, dup, dup2, close, read};
+use std::io::stdout;
+
 
 pub struct RefModule {
   module: Nemu,
@@ -38,6 +42,44 @@ impl RefModule {
 
   pub fn display(&self) {
     self.module.display();
+  }
+
+  pub fn status(&self) -> String {
+    // 创建管道
+    let mut fds: [c_int; 2] = [0; 2];
+    unsafe { pipe(fds.as_mut_ptr()) };
+    
+    // 保存原始stdout
+    let stdout_fd = unsafe { dup(libc::STDOUT_FILENO) };
+    
+    // 重定向stdout到管道写端
+    unsafe { dup2(fds[1], libc::STDOUT_FILENO) };
+    unsafe { close(fds[1]) };
+
+    // 调用C函数（此时printf输出会进入管道）
+    self.display();
+    
+    // 恢复原始stdout
+    unsafe { 
+        dup2(stdout_fd, libc::STDOUT_FILENO);
+        close(stdout_fd);
+    };
+
+    // 从管道读端读取数据
+    let mut buffer = Vec::with_capacity(1024);
+    loop {
+        let mut chunk = [0u8; 256];
+        let count = unsafe { 
+            read(fds[0], chunk.as_mut_ptr() as *mut libc::c_void, chunk.len()) 
+        };
+        if count <= 0 {
+            break;
+        }
+        buffer.extend_from_slice(&chunk[..count as usize]);
+    }
+    unsafe { close(fds[0]) };
+
+    String::from_utf8_lossy(&buffer).into_owned()
   }
 }
 //map index to csr name

@@ -55,8 +55,9 @@ class LSUInterface(parameter: CPUParameter) extends Bundle {
 }
 
 @instantiable
-class LSU(parameter: CPUParameter)
+class LSU(val parameter: CPUParameter)
     extends FixedIORawModule(new LSUInterface(parameter))
+    with SerializableModule[CPUParameter]
     with ImplicitClock
     with ImplicitReset {
   override protected def implicitClock: Clock = io.clock

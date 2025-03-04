@@ -199,21 +199,21 @@ object MDUOpType {
 
   // div
   // bit encoding: | type (1bit) | isWord(1bit) | isSign(1bit) | opcode(1bit) |
-  def div    = "b1000".U(FuOpType.width.W)
-  def divu   = "b1010".U(FuOpType.width.W)
-  def rem    = "b1001".U(FuOpType.width.W)
-  def remu   = "b1011".U(FuOpType.width.W)
+  def div    = "b1001".U(FuOpType.width.W)
+  def divu   = "b1011".U(FuOpType.width.W)
+  def rem    = "b1000".U(FuOpType.width.W)
+  def remu   = "b1010".U(FuOpType.width.W)
 
-  def divw   = "b1100".U(FuOpType.width.W)
-  def divuw  = "b1110".U(FuOpType.width.W)
-  def remw   = "b1101".U(FuOpType.width.W)
-  def remuw  = "b1111".U(FuOpType.width.W)
+  def divw   = "b1101".U(FuOpType.width.W)
+  def divuw  = "b1111".U(FuOpType.width.W)
+  def remw   = "b1100".U(FuOpType.width.W)
+  def remuw  = "b1110".U(FuOpType.width.W)
 
   def isMul(op: UInt) = !op(3)
   def isDiv(op: UInt) = op(3)
 
   def isDivSign(op: UInt) = isDiv(op) && !op(1)
-  def isW(op:       UInt) = op(2)
+  def isW(op:       UInt) = op(2) || (op === "b1000000".U) // mulw 实际会解码成0b1000000, 找不到原因，可能是decoder的问题
   def isH(op:       UInt) = (isDiv(op) && op(0)) || (isMul(op) && op(1, 0) =/= 0.U)
   def getMulOp(op:  UInt) = op(1, 0)
 }

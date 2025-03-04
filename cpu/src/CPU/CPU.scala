@@ -193,7 +193,8 @@ class CPU(val parameter: CPUParameter)
   val exu:  Instance[EXU] = Instantiate(new EXU(parameter))
   val wbu:  Instance[WBU] = Instantiate(new WBU(parameter))
 
-  val flush = wbu.io.redirect.valid
+  val flush0 = ibuf.io.redirect.valid
+  val flush1 = wbu.io.redirect.valid
 
   // ==========================================================
   //  IFU → IBUF → IDU → ISU → EXU → WBU
@@ -207,19 +208,19 @@ class CPU(val parameter: CPUParameter)
   ifu.io.imem <> instUncache.io.in
   instUncache.io.out <> io.imem
   ibuf.io.in <> ifu.io.out
-  PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, flush)
-  PipelineConnect(idu.io.out, isu.io.in, isu.io.out.fire, flush)
-  PipelineConnect(isu.io.out, exu.io.in, exu.io.out.fire, flush)
-  PipelineConnect(exu.io.out, wbu.io.in, true.B, flush)
+  PipelineConnect(ibuf.io.out, idu.io.in, idu.io.out.fire, flush1)
+  PipelineConnect(idu.io.out, isu.io.in, isu.io.out.fire, flush1)
+  PipelineConnect(isu.io.out, exu.io.in, exu.io.out.fire, flush1)
+  PipelineConnect(exu.io.out, wbu.io.in, true.B, flush1)
 
   ifu.io.bpuUpdate <> exu.io.bpuUpdate
-  ifu.io.redirect := DontCare
-  ifu.io.redirect <> wbu.io.redirect
+  ifu.io.redirect.target := Mux(wbu.io.redirect.valid, wbu.io.redirect.target, ibuf.io.redirect.target)
+  ifu.io.redirect.valid := wbu.io.redirect.valid || ibuf.io.redirect.valid
 
-  instUncache.io.flush := flush
-  ibuf.io.flush := flush
-  isu.io.flush := flush
-  exu.io.flush := flush
+  instUncache.io.flush := flush0 || flush1
+  ibuf.io.flush := flush1
+  isu.io.flush := flush1
+  exu.io.flush := flush1
 
   // bypass
   isu.io.forward <> exu.io.forward
@@ -233,10 +234,10 @@ class CPU(val parameter: CPUParameter)
   // val scoreboard = Instantiate(new ScoreBoard(parameter.scoreboardParameter))
   // scoreboard.io.isu <> isu.io.scoreboard
   // scoreboard.io.wb <> wbu.io.scoreboard
-  // scoreboard.io.flush := flush
+  // scoreboard.io.flush := flush1
 
   val dataUncache = Instantiate(new DataUncache(parameter))
-  dataUncache.io.flush := flush
+  dataUncache.io.flush := flush1
   dataUncache.io.load <> exu.io.load
   dataUncache.io.store <> exu.io.store
   io.dmem <> dataUncache.io.out

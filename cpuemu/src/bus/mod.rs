@@ -5,7 +5,7 @@ mod uart;
 use uart::*;
 
 use anyhow;
-use tracing::{error, trace};
+use tracing::trace;
 
 // 抽象设备
 trait ShadowDevice: Send + Sync {
