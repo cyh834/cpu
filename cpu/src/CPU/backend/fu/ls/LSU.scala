@@ -86,13 +86,13 @@ class LSU(val parameter: CPUParameter)
     ) << addr(2, 0)
   }
   io.store.req.bits.addr := addr
-  io.store.req.bits.data := io.src(1) << offset
+  io.store.req.bits.data := (io.src(1) << offset)(63, 0)
   io.store.req.bits.strb := mask(addr, size)
   io.store.req.bits.size := size
   io.store.req.valid := io.isStore && io.valid
 
   // load_result
-  val load_data = io.load.resp.bits.data >> offset
+  val load_data = (io.load.resp.bits.data >> offset)(63, 0)
   val sign_extend_data = MuxLookup(size, 0.U)(
     Seq(
       "b00".U -> SignExt(load_data(7, 0), parameter.XLEN),

@@ -34,17 +34,27 @@ nix build '.#cpu.rtl'
 
 生成测试用例
 ```bash
-nix build '.#nexus-am'
+nix build '.#test.cputest'
 ```
 
-使用Verilator仿真
+使用Verilator仿真一个测试用例
 ```bash
-nix develop '#test' -c python script/run.py nexus-am/dummy
+nix run .#cpu.run -- cputest/dummy
+```
+
+使用Verilator仿真一个测试集
+```bash
+nix run .#cpu.run -- cputest
 ```
 
 使用Verilator生成波形
 ```bash
-nix develop '#test' -c python script/run.py nexus-am/dummy --trace
+nix run .#cpu.run -- cputest/dummy --trace
+```
+
++xxx=xxx可以给rust lib 传递参数
+```bash
+nix run .#cpu.run -- cputest --trace +log-level=trace
 ```
 
 ### TODO

@@ -12,10 +12,11 @@ pkgs.pkgsCross.riscv64-embedded.stdenv.mkDerivation rec{
     owner = "cyh834";
     repo = "nexus-am";
     rev = "master";
-    sha256 = "sha256-DQKpyfo67oUYjEnfS4BV6OCFuXD7Z6BuUO7O7FalohY=";
+    sha256 = "sha256-klEA/BAzYspzVb2u3wlR2GLCfAX4jfXEgnQyc0sHXVc=";
   };
 
   postPatch = ''
+    # 替换 echo 命令
     find . -type f -exec sed -i 's|/bin/echo|echo|g' {} +
   '';
 
@@ -29,16 +30,17 @@ pkgs.pkgsCross.riscv64-embedded.stdenv.mkDerivation rec{
 
   makeFlags = [
     "-C tests/${casePrefix}"
-    "${if caseName != null then "ALL=${caseName}" else ""}"
+    "${lib.optionalString (caseName != null) "ALL=${caseName}"}"
     "ARCH=riscv64-cyh"
+    "${lib.optionalString (casePrefix == "amtest") "mainargs=${caseName}"}"
   ];
 
   installPhase = ''
     runHook preInstall
-    mkdir -p $out/test
-    cp tests/${casePrefix}/build/*.bin $out/test
-    cp tests/${casePrefix}/build/*.elf $out/test
-    cp tests/${casePrefix}/build/*.txt $out/test
+    mkdir -p $out/tests/${casePrefix}
+    cp tests/${casePrefix}/build/*.bin $out/tests/${casePrefix}
+    cp tests/${casePrefix}/build/*.elf $out/tests/${casePrefix}
+    cp tests/${casePrefix}/build/*.txt $out/tests/${casePrefix}
     runHook postInstall
   '';
 }

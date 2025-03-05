@@ -6,7 +6,7 @@ from typing import Tuple, List
 def parse_args() -> Tuple[List[str], str]:
     if "/" in sys.argv[1]:
         testCase, testName = sys.argv[1].split("/")
-        testpath= resolve_nix_path(f"\"#{testCase}\"")
+        testpath= resolve_nix_path(testCase)
         tests = [f for f in os.listdir(testpath) if f.endswith('.elf') and f.startswith(testName)]
         # 如果找到多个测试，只运行第一个
         if tests:
@@ -16,7 +16,7 @@ def parse_args() -> Tuple[List[str], str]:
             sys.exit(1)
     else:
         testCase = sys.argv[1]
-        testpath = resolve_nix_path(f"\"#{testCase}\"")
+        testpath = resolve_nix_path(testCase)
         tests = [f for f in os.listdir(testpath) if f.endswith('.elf')]
         if not tests:
             print(f"\033[1;31m错误:在 {testpath} 中没有找到 .elf 文件\033[0m")
@@ -35,7 +35,7 @@ def resolve_nix_path(attr: str, extra_args: list = None) -> str:
         "--no-link",
         "--no-warn-dirty",
         "--print-out-paths",
-        attr
+        f"\"#test.{attr}\""
     ] + extra_args
     
     # 将参数列表转换为命令字符串
@@ -48,7 +48,7 @@ def resolve_nix_path(attr: str, extra_args: list = None) -> str:
         print(f"\033[1;31m错误: 路径 {nix_path} 不存在\033[0m")
         sys.exit(1)
 
-    test_path = os.path.join(nix_path, "test")
+    test_path = os.path.join(nix_path, "tests", attr)
     if not os.path.exists(test_path):
         print(f"\033[1;31m错误: 路径 {test_path} 不存在\033[0m")
         sys.exit(1)
@@ -62,6 +62,7 @@ def nix_run(elfFilePath: str) -> int:
         extra_args = ["+dump-start=0", "+dump-end=1000000", "+wave-path=wave.fst"]
     else:
         attr = "\".#cpu.verilated\""
+        extra_args = []
 
     args = [
         "nix",

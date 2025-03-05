@@ -43,6 +43,7 @@ unsafe fn load_from_payload<'a>(
   data_width: u32,
 ) -> (Vec<bool>, &'a [u8]) {
   let src = payload as *mut u8;
+  let src_slice = unsafe { std::slice::from_raw_parts(src, 64) };
   let data_width_in_byte = (data_width / 8) as usize;
   let strb_width_in_byte = data_width_in_byte.div_ceil(8); // ceil divide by 8 to get byte width
   let payload_size_in_byte = strb_width_in_byte + data_width_in_byte; // data width in byte

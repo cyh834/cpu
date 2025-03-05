@@ -29,7 +29,6 @@ impl<const SIZE: usize> ShadowDevice for Uart<SIZE> {
 
   fn write_mem_chunk(&mut self, addr: usize, size: usize, strobe: Option<&[bool]>, data: &[u8]) {
     // NOTE: addr & size alignment check already done in ShadowBus, and ELF load can be unaligned anyway.
-
     if let Some(masks) = strobe {
       masks.iter().enumerate().for_each(|(i, mask)| {
         if *mask {
@@ -43,8 +42,9 @@ impl<const SIZE: usize> ShadowDevice for Uart<SIZE> {
     }
 
     //printf txfifo
-    if addr == 0x4 {
-      println!("{}", data[0] as char);
+    if self.regs[0x4] != 0x0 {
+      print!("{}", self.regs[0x4] as char);
     }
+    self.regs[0x4] = 0x0;
   }
 }
