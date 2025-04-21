@@ -7,7 +7,7 @@ def parse_args() -> Tuple[List[str], str]:
     if "/" in sys.argv[1]:
         testCase, testName = sys.argv[1].split("/")
         testpath= resolve_nix_path(testCase)
-        tests = [f for f in os.listdir(testpath) if f.endswith('.elf') and f.startswith(testName)]
+        tests = find_test_files(testpath, testName)
         # 如果找到多个测试，只运行第一个
         if tests:
             tests = [tests[0]]
@@ -17,12 +17,24 @@ def parse_args() -> Tuple[List[str], str]:
     else:
         testCase = sys.argv[1]
         testpath = resolve_nix_path(testCase)
-        tests = [f for f in os.listdir(testpath) if f.endswith('.elf')]
+        tests = find_test_files(testpath)
         if not tests:
             print(f"\033[1;31m错误:在 {testpath} 中没有找到 .elf 文件\033[0m")
             sys.exit(1)
 
     return tests, testpath
+
+def find_test_files(directory, test_name=None):
+    """递归搜索目录中的测试文件"""
+    test_files = []
+    for root, _, files in os.walk(directory):
+        for file in files:
+            # 检查文件是否符合条件
+            if (file.endswith('.elf') or (not '.' in file and os.path.isfile(os.path.join(root, file)))):
+                if test_name is None or file.startswith(test_name):
+                    # 添加完整路径
+                    test_files.append(os.path.join(root, file))
+    return test_files
 
 def resolve_nix_path(attr: str, extra_args: list = None) -> str:
     if extra_args is None:
@@ -91,6 +103,9 @@ def run_test(tests: List[str], testpath: str):
     for test in tests:
         print(f"\033[1;36mRunning: {test}\033[0m")
         nix_run(os.path.join(testpath, test))
+        if not os.path.exists("exit_code.txt"):
+            print(f"\033[1;31m interupted by user\033[0m")
+            break
         exit_code = int(open("exit_code.txt").read())
         os.remove("exit_code.txt")
         if exit_code == 0:
