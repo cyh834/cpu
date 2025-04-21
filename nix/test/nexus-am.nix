@@ -12,7 +12,7 @@ pkgs.pkgsCross.riscv64-embedded.stdenv.mkDerivation rec{
     owner = "cyh834";
     repo = "nexus-am";
     rev = "master";
-    sha256 = "sha256-klEA/BAzYspzVb2u3wlR2GLCfAX4jfXEgnQyc0sHXVc=";
+    sha256 = "sha256-FIgTN3p9r03+vf5RxE9kRyL22FR2U9loh4lTAseVOAU=";
   };
 
   postPatch = ''
