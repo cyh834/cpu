@@ -249,7 +249,7 @@ class CPU(val parameter: CPUParameter)
     probeWire.retire.bits.inst := RegNext(wbu.io.in.bits.instr)
     probeWire.retire.bits.pc := RegNext(wbu.io.in.bits.pc)
     probeWire.retire.bits.gpr := probe.read(regfile.io.probe).gpr
-    probeWire.retire.bits.csr := probe.read(exu.io.probe).csrprobe.csr
+    probeWire.retire.bits.csr := RegNext(probe.read(exu.io.probe).csrprobe.csr)
     probeWire.retire.bits.skip := RegNext(wbu.io.in.bits.skip)
     probeWire.retire.bits.is_rvc := RegNext(wbu.io.in.bits.isRVC)
     probeWire.retire.bits.rfwen := RegNext(wbu.io.rfwrite(0).wen)

@@ -37,4 +37,10 @@ object AXI4Parameters {
     val INCR = 1.U(2.W)
     val WRAP = 2.U(2.W)
   }
+
+  object resp {
+    val OKAY = 0.U(2.W)
+    val EXOKAY = 1.U(2.W)
+    val SLVERR = 2.U(2.W)
+  }
 }

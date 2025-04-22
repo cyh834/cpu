@@ -103,8 +103,15 @@ class EXU(val parameter: CPUParameter)
   mdu.in.valid := (state === s_idle) && ismdu && !io.flush && io.in.valid
 
   val csr = Instantiate(new CSR(parameter)).io
+  val iscsr = FuType.iscsr(fuType)
   csr.clock := io.clock
   csr.reset := io.reset
+  csr.src := io.in.bits.src
+  csr.func := fuOpType
+  csr.imm := io.in.bits.imm
+  csr.valid := (state === s_idle) && iscsr && !io.flush && io.in.valid
+  csr.zimm := io.in.bits.instr(19, 15)
+  csr.pc := io.in.bits.pc
 
   when(lsu.valid || mdu.in.valid) {
     state := s_busy
@@ -131,6 +138,7 @@ class EXU(val parameter: CPUParameter)
     Array(
       (isJmp && !jmp.isAuipc) -> jmp.target,
       (isBrh && brh.taken) -> brh.target,
+      csr.redirect.valid -> csr.redirect.target,
       io.in.bits.isRVC -> (io.in.bits.pc + 2.U)
     )
   )
@@ -167,7 +175,8 @@ class EXU(val parameter: CPUParameter)
     Array(
       isJmp -> jmp.result,
       islsu -> lsu.result,
-      ismdu -> mdu.out.bits.result
+      ismdu -> mdu.out.bits.result,
+      iscsr -> csr.result
     )
   )
 

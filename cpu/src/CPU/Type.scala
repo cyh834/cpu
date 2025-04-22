@@ -232,6 +232,7 @@ object InstrType {
   def B = "b011".U(width.W)
   def U = "b100".U(width.W)
   def J = "b101".U(width.W)
+  def Zimm = "b110".U(width.W)
   def INVALID_INSTR = "b0110".U(width.W)
 
   def dontCare = BitPat.dontCare(width)

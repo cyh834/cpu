@@ -31,8 +31,8 @@ class ISU(val parameter: CPUParameter)
   override protected def implicitReset: Reset = io.reset
   io.out :<>= io.in
 
-  def canForward_exu(i: Int) = io.forward.valid & (io.forward.rfDest === io.in.bits.lsrc(i))
-  def canForward_wbu(i: Int) = io.wb(0).wen & (io.wb(0).addr === io.in.bits.lsrc(i))
+  def canForward_exu(i: Int) = io.forward.valid & (io.forward.rfDest === io.in.bits.lsrc(i)) & (io.forward.rfDest =/= 0.U)
+  def canForward_wbu(i: Int) = io.wb(0).wen & (io.wb(0).addr === io.in.bits.lsrc(i)) & (io.wb(0).addr =/= 0.U)
   for (i <- 0 until parameter.NumSrc) {
     io.rfread(i).addr := io.in.bits.lsrc(i) // 从寄存器堆中读取
     io.out.bits.src(i) := MuxCase(

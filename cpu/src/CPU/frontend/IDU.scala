@@ -85,6 +85,7 @@ class IDU(val parameter: IDUParameter)
 
   val imm = MuxLookup(decodeResult(Decoder.ImmType), 0.U)(
     Seq(
+      //InstrType.Zimm -> ZeroExt(io.in.bits.inst(19, 15), parameter.xlen),
       InstrType.I -> SignExt(io.in.bits.inst(31, 20), parameter.xlen),
       InstrType.S -> SignExt(Cat(io.in.bits.inst(31, 25), io.in.bits.inst(11, 7)), parameter.xlen),
       InstrType.B -> SignExt(

@@ -390,7 +390,7 @@ impl Driver {
         let ref_csr = ref_csr[i];
         let dut_csr = dut_csr[i];
         if ref_csr != dut_csr {
-          error_msg += &format!("\tcsr{} mismatch! ref={:#x}, dut={:#x}\n", csr_name(i), ref_csr, dut_csr);
+          error_msg += &format!("\tcsr {} mismatch! ref={:#x}, dut={:#x}\n", csr_name(i), ref_csr, dut_csr);
           mismatch = true;
         }
       }

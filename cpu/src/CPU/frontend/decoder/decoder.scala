@@ -167,16 +167,20 @@ object Decoder {
 
   object ImmType extends ImmUopField {
     override def name: String = "ImmType"
-    def isShamtd(instruction: Instruction): Boolean = instruction.args.map(_.name).contains("shamtd")
-    def isShamtw(instruction: Instruction): Boolean = instruction.args.map(_.name).contains("shamtw")
+    //def isShamtd(instruction: Instruction): Boolean = instruction.args.map(_.name).contains("shamtd")
+    //def isShamtw(instruction: Instruction): Boolean = instruction.args.map(_.name).contains("shamtw")
+    //def isZimm(instruction: Instruction): Boolean = instruction.args.map(_.name).contains("zimm5") //csri
+    //def isCsr(instruction: Instruction): Boolean = instruction.args.map(_.name) == Seq("rd", "rs1", "csr")
+    //def isret(instruction: Instruction): Boolean = instruction.name.contains("mret") || instruction.name.contains("sret")
     override def genTable(pattern: CPUDecodePattern): BitPat = {
       val instruction = pattern.instruction
-      if (isI(instruction) || isShamtd(instruction) || isShamtw(instruction)) InstrType.I
-      else if (isS(instruction)) InstrType.S
+      //if (isZimm(instruction)) InstrType.Zimm
+      //if (isI(instruction) || isShamtd(instruction) || isShamtw(instruction) || isCsr(instruction) || isret(instruction)) InstrType.I
+      if (isS(instruction)) InstrType.S
       else if (isB(instruction)) InstrType.B
       else if (isU(instruction)) InstrType.U
       else if (isJ(instruction)) InstrType.J
-      else InstrType.dontCare
+      else InstrType.I
     }
   }
 
