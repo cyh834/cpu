@@ -8,33 +8,21 @@ import chisel3.experimental.hierarchy.{instantiable, public, Instance, Instantia
 import cpu._
 import utility._
 
-class LoadReq(parameter: CPUParameter) extends Bundle {
-  val addr = Input(UInt(parameter.VAddrBits.W))
+class DmemReq(vaddrBits: Int, dataBits: Int) extends Bundle {
+  val addr = Input(UInt(vaddrBits.W))
+  val data = Input(UInt(dataBits.W))
+  val strb = Input(UInt((dataBits / 8).W))
   val size = Input(UInt(2.W))
+  val isStore = Input(Bool())
 }
 
-class LoadResp(parameter: CPUParameter) extends Bundle {
-  val data = Output(UInt(parameter.DataBits.W))
+class DmemResp(dataBits: Int) extends Bundle {
+  val data = Output(UInt(dataBits.W))
 }
 
-class LoadInterface(parameter: CPUParameter) extends Bundle {
-  val req = Decoupled(new LoadReq(parameter))
-  val resp = Flipped(Decoupled(new LoadResp(parameter)))
-}
-
-class StoreReq(parameter: CPUParameter) extends Bundle {
-  val addr = Input(UInt(parameter.VAddrBits.W))
-  val data = Input(UInt(parameter.DataBits.W))
-  val strb = Input(UInt(parameter.DataBytes.W))
-  val size = Input(UInt(2.W))
-}
-
-//class StoreResp(parameter: CPUParameter) extends Bundle {
-//}
-
-class StoreInterface(parameter: CPUParameter) extends Bundle {
-  val req = Decoupled(new StoreReq(parameter))
-  // val resp = Flipped(Decoupled(new StoreResp(parameter)))
+class DmemInterface(vaddrBits: Int, dataBits: Int) extends Bundle {
+  val req = Decoupled(new DmemReq(vaddrBits, dataBits))
+  val resp = Flipped(Decoupled(new DmemResp(dataBits)))
 }
 
 class LSUInterface(parameter: CPUParameter) extends Bundle {
@@ -50,8 +38,7 @@ class LSUInterface(parameter: CPUParameter) extends Bundle {
   val result = Output(UInt(parameter.XLEN.W))
   val out_valid = Output(Bool())
   // memory
-  val load = new LoadInterface(parameter)
-  val store = new StoreInterface(parameter)
+  val dmem = new DmemInterface(parameter.VAddrBits, parameter.DataBits)
 }
 
 @instantiable
@@ -67,14 +54,6 @@ class LSU(val parameter: CPUParameter)
   val addr = io.src(0) + io.imm
   val offset = addr(2, 0) << 3.U
 
-  // load
-  io.load.req.bits.addr := addr
-  io.load.req.bits.size := size
-  io.load.req.valid := !io.isStore && io.valid
-
-  io.load.resp.ready := true.B
-
-  // store
   def mask(addr: UInt, size: UInt): UInt = {
     MuxLookup(size, 0xff.U)(
       Seq(
@@ -85,14 +64,17 @@ class LSU(val parameter: CPUParameter)
       )
     ) << addr(2, 0)
   }
-  io.store.req.bits.addr := addr
-  io.store.req.bits.data := (io.src(1) << offset)(63, 0)
-  io.store.req.bits.strb := mask(addr, size)
-  io.store.req.bits.size := size
-  io.store.req.valid := io.isStore && io.valid
+  // req
+  io.dmem.req.bits.addr := addr
+  io.dmem.req.bits.size := size
+  io.dmem.req.bits.data := (io.src(1) << offset)(63, 0)
+  io.dmem.req.bits.strb := mask(addr, size)
+  io.dmem.req.valid := io.valid
 
-  // load_result
-  val load_data = (io.load.resp.bits.data >> offset)(63, 0)
+  io.dmem.resp.ready := true.B
+
+  // resp
+  val load_data = (io.dmem.resp.bits.data >> offset)(63, 0)
   val sign_extend_data = MuxLookup(size, 0.U)(
     Seq(
       "b00".U -> SignExt(load_data(7, 0), parameter.XLEN),
@@ -110,7 +92,7 @@ class LSU(val parameter: CPUParameter)
     )
   )
   val result = Mux(LSUOpType.loadIsUnsigned(io.func), zero_extend_data, sign_extend_data)
-  io.result := HoldUnless(result, io.load.resp.fire)
+  io.result := HoldUnless(result, io.dmem.resp.fire)
 
-  io.out_valid := io.load.resp.fire || (io.isStore && io.store.req.ready)
+  io.out_valid := io.dmem.resp.fire
 }

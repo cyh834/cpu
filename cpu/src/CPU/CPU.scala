@@ -236,11 +236,14 @@ class CPU(val parameter: CPUParameter)
   // scoreboard.io.wb <> wbu.io.scoreboard
   // scoreboard.io.flush := flush1
 
-  val dataUncache = Instantiate(new DataUncache(parameter))
-  dataUncache.io.flush := flush1
-  dataUncache.io.load <> exu.io.load
-  dataUncache.io.store <> exu.io.store
-  io.dmem <> dataUncache.io.out
+  // val dataUncache = Instantiate(new DataUncache(parameter))
+  // dataUncache.io.flush := flush1
+  // dataUncache.io.load <> exu.io.load
+  // dataUncache.io.store <> exu.io.store
+  // io.dmem <> dataUncache.io.out
+  val fence = false.B
+  val empty = Wire(UInt(1.W))
+  io.dmem <> Cache(io.clock, io.reset, "b00".U, fence, exu.io.dmem, io.dmem, empty)
 
   layer.block(layers.Verification) {
     val probeWire: CPUProbe = Wire(new CPUProbe(parameter))

@@ -39,8 +39,7 @@ class EXUInterface(parameter: CPUParameter) extends Bundle {
   val flush = Input(Bool())
   val forward = new ForwardIO(parameter.LogicRegsWidth, parameter.XLEN)
   // val dmem = new AXI4RWIrrevocable(parameter.loadStoreAXIParameter)
-  val load = new LoadInterface(parameter)
-  val store = new StoreInterface(parameter)
+  val dmem = new DmemInterface(parameter.PAddrBits, parameter.DataBits)
   val bpuUpdate = Output(new BPUUpdate(parameter.bpuParameter))
   val redirect_pc = Input(UInt(parameter.VAddrBits.W))
 
